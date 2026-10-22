@@ -1,0 +1,475 @@
+# POINTER-based accesses to LE static data, swapped AT THE SITE (2026-07-30).
+# line <tab> width <tab> evidence
+#
+# Why site-based and not storage-based: these reads go through POINTERS
+# (no symbol in the operand), so the storage manifest cannot see them; and
+# the model DESCRIPTOR mixes widths on one field (desc+0x14 is dword-read by
+# FUNC_001536:91320 and word-read by FUNC_001533:91010), which NO byte order
+# in memory satisfies for both readers without swaps. Keeping the data in
+# x86 order and swapping at each known wide-read site reproduces the x86
+# semantics exactly -- byte readers stay free, and the finite site list is
+# auditable. The model-descriptor struct (465 instances behind DATA_004681,
+# shape proven on DATA_002394 at ffebmp.asm:11040): +0/+4 dd ptrs, +8/+0xc/
+# +0x10 numeric dwords, +0x14/+0x18/+0x2c/+0x30 words, +0x24 byte, +0x34/
+# +0x38 dd ptrs (dword reads of POINTER fields need NO swap -- dc.l is
+# native), +0x38 -> extra block with words at +0/+2/+6, +0x40.. dd streams.
+111220	4	FUNC_001773: mov edx,[eax+0x8] -- descriptor numeric dword +0x8
+111244	4	FUNC_001774: mov eax,[esi+0x10] -- descriptor numeric dword +0x10
+# 111255 REMOVED (was: FUNC_001774 mov eax,[esi+0xc]): the descriptor-sweep agent measured
+# +0x0c across all 465 instances -- it is a NULLABLE POINTER (dd SYMBOL in 253, zero in 212;
+# DATA_002500 has `dd DATA_002499` there), so swapping it corrupts a pointer stored to
+# obj+0x154. dc.l is native; NOSWAP.
+91320	4	FUNC_001536: mov eax,[eax+0x14] -- descriptor dword +0x14 (the field FUNC_001533 word-reads)
+91008	2	FUNC_001533: mov ax,[esi+0x2c] -- descriptor word +0x2c
+91010	2	FUNC_001533: mov ax,[esi+0x14] -- descriptor word +0x14 (low word of the dword field)
+91011	2	FUNC_001533: add ax,[esi+0x18] -- descriptor word +0x18
+91020	2	FUNC_001533: mov ax,[esi+0x30] -- descriptor word +0x30
+91022	2	FUNC_001533: mov ax,[esi+0x14] -- second site
+91023	2	FUNC_001533: add ax,[esi+0x18] -- second site
+91055	2	FUNC_001533: mov ax,[eax] -- extra block (desc+0x38 target) word +0
+91058	2	FUNC_001533: mov ax,[eax+0x2] -- extra block word +2
+37455	2	FUNC_000578: movzx eax,word [eax+0x6] -- extra block word +6 (missile mass)
+37456	2	FUNC_000578: movzx edx,word [edx+0x6] -- extra block word +6
+37560	2	FUNC_000578: movzx eax,word [eax+0x6] -- extra block word +6 (damage)
+88856	4	FUNC_001480: cmp eax,[ebx+0x10] -- descriptor numeric dword +0x10 (vertex loop bound; ebx=[ebp+0xc]=descriptor)
+102445	4	FUNC_001686: mov edx,[edx+0x1c] -- descriptor numeric dword +0x1c (edi in FUNC_001680 = FUNC_001538 result)
+111195	2	FUNC_001772: movzx edx,word [eax] -- THE model-stream opcode fetch; LE words through a pointer, dispatch and 0x1f
+# --- model-stream WORD operand reads in the 31 handlers of DATA_007816 + helpers.
+# Grammar authority: build\datamap\model_grammar.tsv + _notes.md (agent-verified, 223 line
+# citations checked against ffe.asm). Byte operands are NOT listed -- raw LE bytes are correct.
+# Word reads that CARRY two byte fields (idx14/27) ARE listed: swapping makes the loaded
+# REGISTER equal x86's, so every downstream use (incl. pushed-dword byte re-reads, frame.py's
+# domain) behaves identically. Vertex-cache/material/object reads are runtime memory -- excluded.
+103158	2	FUNC_001698 idx1 point: w@2
+103160	2	FUNC_001698 idx1 point: w@0
+103916	2	FUNC_001702 idx2 line: w@0
+104289	2	FUNC_001707 idx3 tri: w@0
+104869	2	FUNC_001711 idx4 quad: w@6
+104883	2	FUNC_001711 idx4 quad: w@0
+104252	2	FUNC_001706 idx7 refl-tri: w@0 (tail-calls 1707)
+104825	2	FUNC_001710 idx8 refl-quad: w@6
+104844	2	FUNC_001710 idx8 refl-quad: w@0
+105976	2	FUNC_001721 idx5 cplx-poly: w@0
+106055	2	FUNC_001721 idx5: sub-opcode fetch (selector = word>>9 -> DATA_007817)
+106330	2	FUNC_001726 idx5 skip-mode: sub-opcode fetch (DATA_007819)
+103014	2	FUNC_001696 idx6 unified-z: w@0 (JUMP_006433 path)
+103062	2	FUNC_001696 idx6 unified-z: w@0 (JUMP_006434 path)
+107187	2	FUNC_001738 idx9 thruster: w@0
+107213	2	FUNC_001738 idx9 thruster: w@4 (esi pre-advanced +2)
+108559	2	FUNC_001747 idx10 text: w@0
+108642	2	FUNC_001747 idx10 text: w@4 (FUNC_001740 flags; byte alias at same offset stays raw)
+108676	2	FUNC_001747 idx10 text: w@6 string id
+109273	2	FUNC_001752 idx11: w@0
+109338	2	FUNC_001755 idx12: w@0
+108953	2	FUNC_001749 idx14: carrier word (b@0,b@1; bit15 = 4-extra-bytes flag)
+112766	2	FUNC_001815 idx16: w@0
+112891	2	FUNC_001815 idx16: w@8
+109681	2	FUNC_001760 idx17: w@0xa
+109683	2	FUNC_001760 idx17: w@8
+109685	2	FUNC_001760 idx17: w@6
+109687	2	FUNC_001760 idx17: w@4
+109689	2	FUNC_001760 idx17: w@2
+109691	2	FUNC_001760 idx17: w@0
+110449	2	FUNC_001763 idx18: w@0
+107012	2	FUNC_001737 idx22 spline: w@0
+110647	2	FUNC_001765 idx23: w@0 (mov dx,[ebx-0x4]; ebx pre-advanced +4)
+110685	2	FUNC_001766 idx24: w@0
+110714	2	FUNC_001766 idx24: w@2
+110368	2	FUNC_001762 idx26: w@0
+110381	2	FUNC_001762 idx26: conditional words w@4.. (one indexed site)
+108870	2	FUNC_001748 idx27: w@4
+108897	2	FUNC_001748 idx27: carrier word (b@0,b@1)
+108917	2	FUNC_001748 idx27: carrier word (second path)
+108179	2	FUNC_001741 idx28 matrix: w@0
+129333	2	FUNC_001874 idx31: w@0
+129335	2	FUNC_001874 idx31: w@8
+129338	2	FUNC_001874 idx31: w@0xa
+129340	2	FUNC_001874 idx31: w@6
+113135	2	FUNC_001823 REC16: w@0 terminator check
+113141	2	FUNC_001823 REC16: w@2
+113250	2	FUNC_001823 REC16: w@4
+113253	2	FUNC_001823 REC16: w@6
+113256	2	FUNC_001823 REC16: w@8
+113259	2	FUNC_001823 REC16: w@0xa
+113262	2	FUNC_001823 REC16: w@0xc
+113265	2	FUNC_001823 REC16: w@0xe
+113270	2	FUNC_001823 REC16: w@0 loop re-check
+# 113232 (cmp dword [eax],0 in FUNC_001823) is NOT listed: a zero-compare is byte-order
+# invariant. 108796/108804 in FUNC_001747 read via esi (not the stream) -- text already
+# renders correctly (credits seen on screen); revisit only if text breaks.
+# --- descriptor-field + extra-block sites from build\datamap\descriptor_sites.tsv
+# (agent sweep of the 77 [DATA_007756] call sites + direct calls; 268 rows verified
+# byte-for-byte against ffe.asm; only the SWAP verdicts land here).
+3550	2	mov ax,[esi+0x2c] -- +0x2c +0x2c is a numeric little-endian field emitted as db bytes; a 16-bit read on 68k returns the bytes in the wrong order
+3552	2	mov ax,[esi+0x14] -- +0x14 +0x14 is a numeric little-endian field emitted as db bytes; a 16-bit read on 68k returns the bytes in the wrong order
+3553	2	add ax,[esi+0x18] -- +0x18 +0x18 is a numeric little-endian field emitted as db bytes; a 16-bit read on 68k returns the bytes in the wrong order
+3563	2	mov ax,[esi+0x30] -- +0x30 +0x30 is a numeric little-endian field emitted as db bytes; a 16-bit read on 68k returns the bytes in the wrong order
+3565	2	mov ax,[esi+0x14] -- +0x14 +0x14 is a numeric little-endian field emitted as db bytes; a 16-bit read on 68k returns the bytes in the wrong order
+3566	2	add ax,[esi+0x18] -- +0x18 +0x18 is a numeric little-endian field emitted as db bytes; a 16-bit read on 68k returns the bytes in the wrong order
+3596	2	mov ax,[eax] -- +0x38 -> +0x00 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+3599	2	mov ax,[eax+0x2] -- +0x38 -> +0x02 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+3623	2	mov ax,[eax+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+3627	2	movsx eax,word [edx+0x8] -- +0x38 -> +0x08 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+3628	2	mov si,[edx+0x14] -- +0x38 -> +0x14 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+8575	2	movsx eax,word [eax+0xe] -- +0x38 -> +0x0e the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+9886	2	movsx eax,word [eax+0xe] -- +0x38 -> +0x0e the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+21380	2	mov dx,[edx+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+21887	2	mov ax,[eax+0xe] -- +0x38 -> +0x0e the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+22023	2	movsx ebx,word [eax+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+22170	2	movsx eax,word [eax+0xc] -- +0x38 -> +0x0c the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+25374	2	movsx eax,word [eax+0xe] -- +0x38 -> +0x0e the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+26426	2	mov cx,[eax+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+28490	2	mov cx,[eax+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+29088	2	movsx eax,word [eax+0x4] -- +0x38 -> +0x04 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+29583	2	cmp word [eax+0x14],byte +0x0 -- +0x38 -> +0x14 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+29634	2	cmp word [eax+0x14],byte +0x0 -- +0x38 -> +0x14 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+29799	2	movsx edx,word [eax+0x12] -- +0x38 -> +0x12 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+29840	2	movsx edx,word [eax+0x12] -- +0x38 -> +0x12 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+30488	2	movsx edx,word [eax+0xa] -- +0x38 -> +0x0a the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+30490	2	mov ax,[eax+0x14] -- +0x38 -> +0x14 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+30514	2	movsx edx,word [eax+0xa] -- +0x38 -> +0x0a the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+30522	2	movsx edx,word [eax+0x8] -- +0x38 -> +0x08 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+30524	2	movsx eax,word [eax+0xe] -- +0x38 -> +0x0e the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+30638	2	movsx eax,word [ebx+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+30640	2	movsx eax,word [ebx+0x8] -- +0x38 -> +0x08 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+30642	2	mov ax,[ebx+0x4] -- +0x38 -> +0x04 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+30645	2	movsx eax,word [ebx+0x12] -- +0x38 -> +0x12 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+30647	2	movsx eax,word [ebx+0x10] -- +0x38 -> +0x10 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+30695	2	movsx eax,word [ebx] -- +0x38 -> +0x00 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+30700	2	movsx eax,word [ebx+0x2] -- +0x38 -> +0x02 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+30854	2	cmp word [eax+0x14],byte +0x0 -- +0x38 -> +0x14 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+30928	2	movsx eax,word [eax+0x10] -- +0x38 -> +0x10 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+30948	2	mov ax,[eax+0x14] -- +0x38 -> +0x14 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+31129	2	movsx eax,word [esi+0xa] -- +0x38 -> +0x0a the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+31139	2	movsx eax,word [esi+0xa] -- +0x38 -> +0x0a the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+31153	2	movsx eax,word [esi+0xa] -- +0x38 -> +0x0a the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+31162	2	movsx eax,word [esi+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+31182	2	movsx eax,word [esi+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+31393	2	mov ax,[ecx+0x2] -- +0x38 -> +0x02 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+31444	2	mov ax,[ecx] -- +0x38 -> +0x00 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+32422	2	movsx eax,word [eax+0xe] -- +0x38 -> +0x0e the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+33442	2	movsx eax,word [eax+0x12] -- +0x38 -> +0x12 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+35594	2	movsx edx,word [eax+0x14] -- +0x38 -> +0x14 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+35597	2	movsx esi,word [eax+0xc] -- +0x38 -> +0x0c the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+36671	4	mov eax,[edx+0x2c] -- +0x2c +0x2c is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+36673	4	mov esi,[edx+0x14] -- +0x14 +0x14 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+36674	4	add esi,[edx+0x18] -- +0x18 +0x18 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+36676	4	mov edx,[edx+0x14] -- +0x14 +0x14 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+36678	4	add edx,[ecx+0x18] -- +0x18 +0x18 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+36684	4	mov ecx,[ecx+0x30] -- +0x30 +0x30 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+36913	2	movsx ecx,word [eax+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+37067	4	sub edx,[eax+0x14] -- +0x14 +0x14 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+37118	2	movsx eax,word [eax] -- +0x34 -> +0x00 16-bit read of the +0x34 stream, which FUNC_000576 walks BACKWARDS in 2-byte steps ('sub dword [ebp-0x4],byte +0x2' then 'movsx eax,word [eax]'): a li
+37126	2	movsx ebx,word [edx] -- +0x34 -> +0x00 16-bit read of the +0x34 stream, which FUNC_000576 walks BACKWARDS in 2-byte steps ('sub dword [ebp-0x4],byte +0x2' then 'movsx eax,word [eax]'): a li
+37675	4	mov eax,[ebx+0x14] -- +0x14 +0x14 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+37676	4	add eax,[ebx+0x18] -- +0x18 +0x18 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+37770	4	mov eax,[esi+0x14] -- +0x14 +0x14 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+37771	4	add eax,[esi+0x18] -- +0x18 +0x18 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+47335	2	movsx eax,word [eax+0x12] -- +0x38 -> +0x12 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+49005	4	mov esi,[eax+0x14] -- +0x14 +0x14 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+49006	4	add esi,[eax+0x18] -- +0x18 +0x18 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+50584	2	movsx eax,word [eax+0x14] -- +0x38 -> +0x14 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+50685	2	movsx eax,word [eax+0x12] -- +0x38 -> +0x12 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+51708	2	movsx eax,word [eax+0xe] -- +0x38 -> +0x0e the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+54218	4	mov eax,[ebx+0x14] -- +0x14 +0x14 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+54219	4	add eax,[ebx+0x18] -- +0x18 +0x18 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+54381	4	mov edx,[eax+0x14] -- +0x14 +0x14 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+54382	4	add edx,[eax+0x18] -- +0x18 +0x18 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+64395	4	mov esi,[ebx+0x2c] -- +0x2c +0x2c is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+64418	4	mov eax,[ebx+0x14] -- +0x14 +0x14 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+64419	4	add eax,[ebx+0x18] -- +0x18 +0x18 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+67138	2	cmp word [eax+0x6],byte +0x0 -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+67141	2	mov ax,[eax+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+67155	2	movsx eax,word [eax+0x8] -- +0x38 -> +0x08 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+67208	2	movsx eax,word [eax+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+67350	2	movsx ebx,word [eax+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+69630	2	movsx esi,word [eax+0x24] -- +0x38 -> +0x24 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+69636	2	movsx eax,word [eax+0x26] -- +0x38 -> +0x26 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+69655	2	movsx esi,word [eax+0x20] -- +0x38 -> +0x20 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+69661	2	movsx eax,word [eax+0x22] -- +0x38 -> +0x22 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+69680	2	movsx esi,word [eax+0x28] -- +0x38 -> +0x28 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+69686	2	movsx eax,word [eax+0x2a] -- +0x38 -> +0x2a the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+69694	2	movsx esi,word [eax+0x2c] -- +0x38 -> +0x2c the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+69700	2	movsx eax,word [eax+0x2e] -- +0x38 -> +0x2e the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+70166	2	movsx eax,word [eax+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+70176	2	movsx eax,word [eax+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+70190	2	mov ax,[eax+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+70245	2	movsx eax,word [eax+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+70696	2	movsx eax,word [eax+0x16] -- +0x38 -> +0x16 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+70753	2	movsx eax,word [eax+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+70777	4	mov eax,[eax+0x14] -- +0x14 +0x14 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+70779	4	add eax,[edx+0x18] -- +0x18 +0x18 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+70781	4	mov edx,[edx+0x14] -- +0x14 +0x14 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+70783	4	add edx,[ecx+0x18] -- +0x18 +0x18 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+71167	2	movsx eax,word [eax+0x8] -- +0x38 -> +0x08 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+71437	2	movsx ecx,word [eax+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+73208	4	mov edx,[eax+0x14] -- +0x14 +0x14 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+73209	4	add edx,[eax+0x18] -- +0x18 +0x18 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+74230	2	movsx eax,word [eax+0x10] -- +0x38 -> +0x10 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+74257	2	mov ax,[eax+0x14] -- +0x38 -> +0x14 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+77705	2	mov dx,[eax+0x1a] -- +0x38 -> +0x1a the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+77707	2	mov ax,[eax+0x18] -- +0x38 -> +0x18 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+77728	2	mov dx,[eax+0x1a] -- +0x38 -> +0x1a the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+77730	2	mov ax,[eax+0x18] -- +0x38 -> +0x18 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+77766	2	mov dx,[eax+0x1a] -- +0x38 -> +0x1a the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+77768	2	mov ax,[eax+0x18] -- +0x38 -> +0x18 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+77921	2	movsx eax,word [edx+0x28] -- +0x38 -> +0x28 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+77922	2	movsx edx,word [edx+0x2a] -- +0x38 -> +0x2a the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+77927	2	movsx eax,word [edx+0x2c] -- +0x38 -> +0x2c the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+77928	2	movsx edx,word [edx+0x2e] -- +0x38 -> +0x2e the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+78140	4	mov eax,[edx+0x1c] -- +0x1c +0x1c is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+78142	4	mov edx,[edx+0x14] -- +0x14 +0x14 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+79361	2	movsx ecx,word [edx+0x1a] -- +0x38 -> +0x1a the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+79366	2	movsx eax,word [edx+0x18] -- +0x38 -> +0x18 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+80827	2	movsx edx,word [edx+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+80895	2	movsx edx,word [edx+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+80903	2	movsx eax,word [eax+0xe] -- +0x38 -> +0x0e the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+80995	2	movsx eax,word [eax+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+81759	2	movsx edx,word [ecx+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+81766	2	movsx eax,word [ecx+0xe] -- +0x38 -> +0x0e the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+81913	4	mov eax,[edx+0x1c] -- +0x1c +0x1c is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+81915	4	mov edx,[edx+0x14] -- +0x14 +0x14 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+91082	2	mov ax,[eax+0x6] -- +0x38 -> +0x06 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+91086	2	movsx eax,word [edx+0x8] -- +0x38 -> +0x08 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+91087	2	mov si,[edx+0x14] -- +0x38 -> +0x14 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+101926	4	mov eax,[edi+0x20] -- +0x20 +0x20 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+102006	4	mov eax,[edi+0x14] -- +0x14 +0x14 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+102008	4	mov eax,[edi+0x18] -- +0x18 +0x18 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+102072	4	cmp esi,[edi+0x28] -- +0x28 +0x28 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+102090	4	mov esi,[edi+0x1c] -- +0x1c +0x1c is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+102247	4	mov eax,[ebx+0x14] -- +0x14 +0x14 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+102328	4	mov eax,[esi+0x14] -- +0x14 +0x14 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+102514	4	mov eax,[eax+0x8] -- +0x08 +0x08 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+108657	4	mov eax,[ebx+0x8] -- +0x08 +0x08 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+109008	4	add eax,[esi+0x14] -- +0x14 +0x14 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+109009	4	add eax,[esi+0x18] -- +0x18 +0x18 is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+109013	4	mov eax,[esi+0x1c] -- +0x1c +0x1c is a numeric little-endian field emitted as db bytes; a 32-bit read on 68k returns the bytes in the wrong order
+111363	2	movsx edx,word [eax+0x20] -- +0x38 -> +0x20 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+111364	2	movsx eax,word [eax+0x22] -- +0x38 -> +0x22 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+111373	2	movsx edx,word [eax+0x24] -- +0x38 -> +0x24 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+111375	2	movsx eax,word [eax+0x26] -- +0x38 -> +0x26 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+111387	2	movsx edx,word [eax+0x28] -- +0x38 -> +0x28 the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+111388	2	movsx eax,word [eax+0x2a] -- +0x38 -> +0x2a the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+111393	2	movsx edx,word [eax+0x2c] -- +0x38 -> +0x2c the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+111394	2	movsx eax,word [eax+0x2e] -- +0x38 -> +0x2e the +0x38 extra-data block is exactly 48 db bytes in all 84 instances that have one = 24 little-endian words; a 16-bit read on 68k returns the two byt
+# --- BITMAP HEADER words (the 2D icon/backdrop path): header = flags.b@0,
+# height.b@1, width.w@2, xoff.w@4, yoff.w@6, pixels@8; reached via the
+# directory DATA_008240[idx] (dc.l, native). The unswapped width/stride was
+# THE striped-panel/white-intro corruption (2026-07-30 evening).
+97267	2	FUNC_001625_BlitClipInternal: movsx esi,word [edx+0x6] -- bitmap yoff
+97289	2	FUNC_001625_BlitClipInternal: movsx esi,word [edx+0x2] -- bitmap width (row-skip imul)
+97309	2	FUNC_001625_BlitClipInternal: movsx ebx,word [edx+0x4] -- bitmap xoff
+97312	2	FUNC_001625_BlitClipInternal: movsx ebx,word [edx+0x2] -- bitmap width
+97735	2	FUNC_001636_SetPtrImage: movzx edx,word [eax+2] -- pointer-image bitmap width
+97737	2	FUNC_001636_SetPtrImage: movsx edx,word [eax+4] -- xoff
+97739	2	FUNC_001636_SetPtrImage: movsx edx,word [eax+6] -- yoff
+# GuiProcessInput's hot-area walker (FUNC_001432): DATA_007683 entries are
+# LE (copied raw from the LE template tables by GuiAddHotAreas), read here
+# through eax as dwords. Unswapped, x0=40 reads as 0x28000000 and every
+# console click misses the table -- measured 2026-07-31: clicks at
+# (71,181)..(118,172) with the table live produced NO action (y>=158 miss
+# path sets action 0), while viewport clicks produced ff. Sentinel read at
+# 86085 (cmp dword [eax],-1) is byteswap-invariant and stays unmarked.
+110040	4	FUNC_001761: mov eax,[ebp-0xf]  -- COURIER dword over a 3-byte RGB local (record A), pushed to FUNC_001326_DPal32to16 which re-reads it byte-wise at [ebp+8/9/0xa]. The local is a byte array (its address escapes via lea to FUNC_001691), so MOVE.L yields R in bits 31..24; the x86 dword has R in bits 7..0. See PROVEN_SUBWORD FUNC_001761 in frame.py.
+110086	4	FUNC_001761: mov eax,[ebp-0x12] -- the same courier for record B, same callee, same reason.
+20347	4	FUNC_000261_ConsoleDrawButtons: mov eax,[ebx-0x2c] -- console button Y. ebx walks the 82 x 62-byte record array by POINTER (mov ebx,DATA_005101 / add ebx,0x3e), so no operand carries a symbol and the manifest cannot see any of these four reads. Record 0 is y=0xb2=178.
+20349	4	FUNC_000261_ConsoleDrawButtons: mov eax,[ebx-0x30] -- console button X, same pointer walk. Record 0 is x=0x128=296. Unswapped this reads 0x28010000 and the caption blits off-screen.
+20351	4	FUNC_000261_ConsoleDrawButtons: mov eax,[ebx+0x4] -- curindex, the same field FUNC_000262 writes through the NAMED DATA_005102 (which does swap). Reader and writer disagreed: that asymmetry is the bug.
+20354	4	FUNC_000261_ConsoleDrawButtons: mov eax,[eax+edx*4+0x8] -- the image-index table at record+0x0c onward, reached through the pointer built by the preceding lea.
+20393	4	FUNC_000262_ConsoleSetButtonImage: cmp ecx,[eax] -- the radio-ID compare in the de-select loop, walking the same array by pointer (mov eax,DATA_005103 / add eax,0x3e). ecx came from the NAMED DATA_005103 read and is therefore swapped; this operand must match it.
+105320	4	FUNC_001712: mov eax,[ebp-0x6] -- COURIER dword over the quad path's 3-byte RGB local, pushed straight to FUNC_001326_DPal32to16 (105321-105322), which re-reads it byte-wise at [ebp+8/9/0xa]. Identical to FUNC_001761's 110040/110086; see PROVEN_SUBWORD FUNC_001712 in frame.py. The components are clamped one at a time to 0xf just above, which is what proves they are 4-bit RGB channels and not a scalar's bytes.
+105413	4	FUNC_001712: mov eax,[ebp-0x3] -- COURIER dword over FUNC_001712 second RGB local at [ebp-0x3..-0x1], filled by FUNC_001691 through lea eax,[ebp-0x3] (ffe.asm:105354-105356) -- the SAME fill routine and the SAME escaping-byte-array shape as FUNC_001761 record A. Measured: the colour reaching DPal32to16 from this path had channels 0xf8/0xd2, far outside the 0..15 a 4-bit channel allows, which is why the 3D viewport was monochrome while the 2D console was in full colour.
+105444	4	FUNC_001712: mov eax,[ebp-0x3] -- COURIER dword over FUNC_001712 second RGB local at [ebp-0x3..-0x1], filled by FUNC_001691 through lea eax,[ebp-0x3] (ffe.asm:105354-105356) -- the SAME fill routine and the SAME escaping-byte-array shape as FUNC_001761 record A. Measured: the colour reaching DPal32to16 from this path had channels 0xf8/0xd2, far outside the 0..15 a 4-bit channel allows, which is why the 3D viewport was monochrome while the 2D console was in full colour.
+105457	4	FUNC_001712: mov eax,[ebp-0x3] -- COURIER dword over FUNC_001712 second RGB local at [ebp-0x3..-0x1], filled by FUNC_001691 through lea eax,[ebp-0x3] (ffe.asm:105354-105356) -- the SAME fill routine and the SAME escaping-byte-array shape as FUNC_001761 record A. Measured: the colour reaching DPal32to16 from this path had channels 0xf8/0xd2, far outside the 0..15 a 4-bit channel allows, which is why the 3D viewport was monochrome while the 2D console was in full colour.
+#
+# THE HANDCODED-SYSTEM TABLE WALK (2026-08-04). FUNC_000868 walks a table of
+# 54-byte records at DATA_007110, terminated by a zero dword, whose FIRST dword
+# is a system code matched against the id in arg1 (ffe.asm:60782-60796):
+#
+#   mov edx,DATA_007110
+#   JUMP_003604: mov ecx,[edx] / test ecx,ecx / jnz
+#   JUMP_003603: cmp ecx,[ebp+0x8] / jz / inc eax / add edx,byte +0x36
+#
+# The records run from DATA_007110 (4 bytes) through 007111/007112/007113/007114
+# and far into DATA_007115 (18316 bytes, storage `le'), so the walked dwords sit
+# in x86 byte order. The read carries NO symbol, so nothing swaps it unless the
+# site is listed here -- and unlisted it returned raw x86 bytes, so every stored
+# syscode compared byte-reversed against a correct id.
+#
+# Measured 2026-08-04: with the id at [DATA_008804+0x27c] finally bit-identical
+# to the reference (1aa51717), FUNC_000869 still wrote 0x0c into
+# [DATA_008804+0x28c] where the reference writes 0xe6; that single value becomes
+# rec+0x10 and turns the reference's 27 stellar bodies into our 8.
+#
+# NOT a `dword-only' override: the stride 0x36 = 54 is not a multiple of 4, so
+# be32 grouping cannot align with the records -- the same reasoning already
+# recorded for DATA_005101 and its 62-byte stride.
+#
+# Line 60796 (`cmp dword [edx*2+DATA_007110],byte +0x0') deliberately gets NO
+# entry: it compares against ZERO, which is byte-order invariant.
+60790	4	FUNC_000868: mov ecx,[edx] -- the syscode dword of each 54-byte record in the DATA_007110 table
+#
+# MEASURED ON THE REFERENCE, 2026-08-05, and this is what turns the entry above
+# from a guess into a carried fact. A shim on FUNC_000869 in the instrumented PC
+# build logs, for the SAME id both machines hold:
+#
+#   PC869 n=1 ret=007A33C8 id=1aa51717 idx=323 o2=84f1 o3=800c o4=e6 ... d8962=e6
+#
+# The reference FINDS the player's system in the handcoded table, at index 323 --
+# so record 323's syscode really is 0x1aa51717, and the walk above must match it.
+# Ours read that dword raw (0x1717a51a) and matched nothing, fell through to the
+# distance classifier and returned -6, whose record's +5 byte is 0x0c. Both
+# numbers are now derived, not guessed: the +5 column of the archetype records is
+# 00 02 0c 33 6e 8c cc e6 for indices -8..-1.
+#
+# The same three reads in FUNC_000869 were unregistered for the same reason --
+# it indexes the SAME records through `ebx = DATA_007106' with a run-time index,
+# so no symbol reaches lower.ea():
+60912	4	FUNC_000869: mov ecx,[ebx+edx*2+0x1de] -- record field +46 (a dword) of the same 54-byte table
+60915	4	FUNC_000869: mov ecx,[ebx+edx*2+0x1e2] -- record field +50 (a dword) of the same 54-byte table
+60938	2	FUNC_000869: movzx eax,word [ebx+edx*2+0x1ba] -- record field +10 (a word) of the same 54-byte table
+#
+#
+# ---- DATA_007811: the 148 x 30-byte SHADE TABLE, added 2026-08-05 (night) ----
+#
+# THE WILD WRITE THAT HARD-RESETS THE MACHINE ~161 FRAMES IN, with no crash log
+# although _FfeTrapCode is linked. Bisected to ffe.asm:105265..105321 by a
+# marker ring, then read out of the disassembly and the data.
+#
+# Layout, taken from the bytes themselves (ffedat.asm:24954 onward):
+#     +0x00  dd   numeric (0x32 = 50 in every record seen)
+#     +0x04  dd   ENTRY COUNT (7)
+#     +0x08  22 bytes  RGB triples, stride 3
+# and the manifest gives the span as
+#     DATA_007811 plain 8 | DATA_007812 le 1 | DATA_007813 le 1 | DATA_007814 le 4430
+# 8+1+1+4430 = 4440 = 148 records of 30 bytes EXACTLY. So the record base is an
+# EARLIER label than the bytes it spans -- DATA_007814 is reached as
+# DATA_007811+30*n -- which is the DATA_009128 class all over again: the label's
+# own kind cannot describe the record, and every read goes through a register
+# base (`add eax,DATA_007811' then `mov eax,[ebp-0x1c]'), so the storage manifest
+# never sees it and no correction is applied.
+#
+# Left raw, `cmp edi,[eax+0x4]' reads the bytes 07 00 00 00 as a 68k dword:
+# 0x07000000 = 117,440,512. The loop body is
+#     mov [esi],eax / inc edi / add esi,byte +0x4
+# with esi starting at node+0x18 -- so it writes a dword 117 million times
+# straight across the whole address space, INCLUDING the 68k exception vectors
+# at 0x0. The next exception is then a double fault and the machine resets with
+# no handler, which is exactly why no ffe_crash.log is ever written.
+#
+# The 22 RGB bytes must stay raw, so converting the label is wrong; swapping the
+# two dwords AT THE SITE is the only description that satisfies both readers.
+# The `mov ax,[ebx]' / `mov al,[ebx+0x2]' triple reads are deliberately NOT
+# registered: a word load of two adjacent bytes into a register and a word store
+# back out preserves their order on both machines, so they are endian-neutral.
+#
+# Falsifier, registered BEFORE the run: if this is the killer, the run must get
+# past 161 frames. If it still resets at ~161, the count was not the cause and
+# this entry is wrong -- it does not become "one of several causes".
+104620	4	FUNC_001708: mov edx,[edx] -- DATA_007811 record +0x0, numeric dword
+104661	4	FUNC_001708: cmp edi,[eax+0x4] -- record +0x4, THE LOOP BOUND of the `mov [esi],eax' write loop
+105288	4	FUNC_001712: mov eax,[eax] -- DATA_007811 record +0x0, numeric dword
+105331	4	FUNC_001712: cmp edi,[eax+0x4] -- record +0x4, THE LOOP BOUND of the `mov [esi],eax' write loop
+#
+108785	2	FUNC_001747 glyph loop: mov di,[esi] -- the glyph stream's opcode word, read through a run-time pointer into ffebmp model bytecode (raw x86 order). The other three stream words in this function are registered (108559 w@0, 108642 w@4, 108676 w@6); these three were not, and the index they produce reads -128 here against 26/40/2/36/24 on the reference.
+108796	2	FUNC_001747 glyph loop: movsx eax,word [esi] -- same word, cached-glyph branch
+108804	2	FUNC_001747 glyph loop: movsx eax,word [esi] -- same word, interpreted-glyph branch; `sar eax,0x6' turns it into the FUNC_001470 node index
+#
+# THE GREEN BACKGROUND (2026-09-02). DATA_009217/9218/9219 are THREE CONSECUTIVE
+# `resb 1' BYTES (ffedat.asm:28926-28931) holding the current draw colour as
+# r,g,b -- not a dword. FUNC_001578 fills them byte-wise from DATA_009214/15/16
+# (`mov ax,[DATA_009214] / mov [DATA_009217],ax' copies r,g; `mov al,
+# [DATA_009216] / mov [DATA_009219],al' copies b, ffe.asm:93596-93600), so the
+# three channels sit in ASCENDING address order and those byte/word moves are
+# already correct on both machines.
+#
+# The two sites below then read that byte array WHOLE as a courier dword and
+# push it to FUNC_001326_DPal32to16, which picks it apart again bytewise. The
+# emitted DPal32to16 reads `move.b (11,a5),d0' / `(10,a5)' / `(9,a5)' -- the
+# LOW three bytes -- so the courier must carry r in bits 7..0 exactly as x86
+# does. A plain big-endian MOVE.L of an ascending byte array puts r in bits
+# 31..24 instead, which swaps r with b. Identical in every respect to
+# FUNC_001761's couriers at 110040/110086 and FUNC_001712's at 105320.
+#
+# MEASURED, not reasoned: the COLCENSUS probe recorded FUNC_001579 pushing
+# 0x00000500. Unreversed that is bytes r=0,g=0,b=5 -- a dark BLUE -- which
+# DPal32to16 then decoded from the wrong end as (0,5,0), a dark GREEN. That is
+# the flat green covering 56% of the intro frame (palette index 173 = (1,17,1),
+# build\S1-intro.png). staticscan.tsv types DATA_009217 as `mixed' with widths
+# 1:1,2:1,4:2 -- the scan could not decide, which is precisely the case this
+# site list exists to settle by hand.
+93613	4	FUNC_001579: mov eax,[DATA_009217] -- COURIER dword over the 3-byte current-colour record, pushed straight to FUNC_001326_DPal32to16 (93614-93615). See the block comment above.
+82970	4	FUNC_001330_DPalBuild: mov eax,[DATA_009217] -- the same courier over the same three bytes, same callee (82971-82972), same reason.
+#
+# 2026-09-25 -- THE REST OF THE DPal32to16 COURIER FAMILY. An audit of all 36
+# `call near [DATA_007629]' sites against the emitted 68k found only
+# FUNC_001761/001712/001330/001579 carrying the 4-byte reverse. Every row below
+# is a dword read of a 3-byte RGB local built BYTE-WISE in address order (by
+# FUNC_001691 through an escaping `lea', by a word+byte copy, or by per-channel
+# byte stores -- evidence per function in frame.py PROVEN_SUBWORD, same date),
+# consumed by DPal32to16's LOW-byte reads either directly or as a by-value
+# argument forwarded with plain dword moves (FUNC_001701 [ebp+0x14], 001704
+# [ebp+0x14], 001709 [ebp+0x18], 001714 [ebp+0x1c]: every access to those slots
+# is a whole-dword read, checked). Measured symptom in the intro: the grey-ramp
+# objects -- the logo, ships, asteroids -- all index 0.
+12605	4	FUNC_000115: mov eax,[ebp-0x3] -- courier over the picture palette's RGB bytes 12596-12604, to DPal32to16.
+14206	4	FUNC_000125: mov eax,[ebp-0x3] -- the same courier in the second picture loader (14197-14205).
+103534	4	FUNC_001700: mov eax,[ebp-0x7] -- courier over the RGB record FUNC_001691 fills through lea [ebp-0x7] (103486), to DPal32to16.
+103550	4	FUNC_001700: mov eax,[ebp-0x7] -- the same record after the per-channel adds 103544-103549.
+103726	4	FUNC_001700: mov eax,[ebp-0x7] -- the same record, pushed by value to FUNC_001701 (its [ebp+0x14], read only as a dword and forwarded to DPal32to16 at 103891-103893).
+103745	4	FUNC_001700: mov eax,[ebp-0x7] -- as 103726.
+103760	4	FUNC_001700: mov eax,[ebp-0x7] -- as 103726.
+103805	4	FUNC_001700: mov eax,[ebp-0x7] -- courier to DPal32to16 (103806-103807).
+103848	4	FUNC_001700: mov eax,[ebp-0x7] -- the record after the byte-wise rescale 103812-103846, to DPal32to16.
+104650	4	FUNC_001708: mov eax,[ebp-0x6] -- courier over the clamped RGB bytes 104628-104648, to DPal32to16.
+104687	4	FUNC_001708: mov eax,[ebp-0x3] -- courier over the record FUNC_001691 fills through lea [ebp-0x3] (104683-104685), pushed by value to FUNC_001709 ([ebp+0x18], dword-only).
+106103	4	FUNC_001721: mov eax,[ebp-0x3] -- courier over the record filled through lea [ebp-0x3] (106010), to DPal32to16.
+107159	4	FUNC_001737: mov eax,[ebp-0x3] -- courier over the record filled through lea [ebp-0x3] (107033), to DPal32to16.
+107297	4	FUNC_001738: mov eax,[ebp-0x3] -- courier over the record filled through lea [ebp-0x3] (107208), pushed by value to FUNC_001704 ([ebp+0x14], dword-only).
+107450	4	FUNC_001738: mov eax,[ebp-0x3] -- courier over the bytes rebuilt at 107433-107449, to DPal32to16.
+107572	4	FUNC_001738: mov eax,[ebp-0x3] -- courier over the bytes rebuilt at 107555-107571, to DPal32to16.
+110147	4	FUNC_001761: mov eax,[eax] -- eax = lea [ebp-0x37], the record FUNC_001691 has just filled (110142-110144); POINTER read of a byte array, to DPal32to16.
+110228	4	FUNC_001761: mov eax,[eax] -- as 110147, record [ebp-0x5b] (110223-110225).
+110309	4	FUNC_001761: mov eax,[eax] -- as 110147, record [ebp-0x7f] (110304-110306).
+110775	4	FUNC_001766: mov eax,[ebp-0x3] -- courier over the 3-byte copy 110710-110713, to DPal32to16.
+# 2026-09-25, second pass (RGBMAP per producer): the planet-halo family.
+132273	4	FUNC_001878: mov eax,[ebp-0x4] -- courier over the RGB triple copied word+byte out of the object record (132264-132267); see PROVEN_SUBWORD FUNC_001878. Returned to FUNC_001879 (132313-132315) and to the C port of FUNC_001877, both of which want the x86 value r | g<<8 | b<<16.
+132317	4	FUNC_001879: mov eax,[ebx] -- POINTER read of ramp entry 0, a byte-wise r,g,b(,0) array built by the C port of FUNC_001877 (ffe_planet.c LOOP 2); the sum with FUNC_001878's value goes to DPal32to16 (132318-132322).
+115610	4	FUNC_001844: mov eax,[DATA_009259] -- the halo base colour, filled BYTE-wise by FUNC_001691 (mov [eax],dx / mov [eax+2],dl), added to a packed value and pushed to DPal32to16 (115611-115614). Named be32 in the manifest, so without this row the 68k read it as 0xrrggbb00.
+115651	4	FUNC_001845: mov eax,[DATA_009259] -- the same colour, stored and pushed to DPal32to16 (115652-115655).
+103941	2	FUNC_001703: mov [ebp-0x3],ax -- word STORE into a by-value code built byte-wise in x86 order; swapped so the bytes sit as on x86 (see PROVEN_SUBWORD FUNC_001703)
+# 2026-09-25: BITMAP WIDTH read by callers of FUNC_001620_BmpIndexToPtr. The
+# bitmaps in ffebmp are raw x86 bytes and FUNC_001625's own header reads are
+# registered above (97267/97289/97309/97312); these five callers read the same
+# +2 width word themselves and were not. MEASURED: the intro's FIRST ENCOUNTERS
+# banner (bitmap 66, width 0x137) was blitted at x = 160 - (0x3701>>1) = -6880
+# -- exactly the byte-swapped width -- where the reference blits it at x=5.
+10614	2	movsx edx,word [eax+0x2] -- bitmap width (BmpIndexToPtr result)
+10630	2	movsx edx,word [eax+0x2] -- bitmap width (BmpIndexToPtr result)
+71741	2	movsx eax,word [eax+0x2] -- bitmap 66 (the intro banner) width, centred at 160-w/2
+85159	2	movsx eax,word [eax+0x2] -- bitmap width
+98427	2	cmp word [eax+0x2],byte +0x40 -- bitmap width compared with 64
+# 2026-09-25: THE PLANET-SURFACE SHADE, same record as FUNC_001878's. The
+# object's 3-byte RGB triple at +0x84+3k is read `mov cx,[edx+eax+0x84]' and
+# stored into a stack dword that the rest of the function treats as a NUMERIC
+# packed colour (adds `add [ebp-0x4],eax', `and eax,0xf0f0f', DPal32to16).
+# frame.py's flip already keeps that slot in value form; only the POINTER word
+# read of raw record bytes is big-endian here (r<<8|g where x86 has g<<8|r).
+# Swapping that one read makes the value identical to x86's. The byte read of
+# +0x86 needs nothing. (FUNC_001878's copy of the same idiom was fixed the
+# other way -- pass-through + swapped dword read -- earlier the same day;
+# both are consistent, this one touches one instruction instead of five.)
+114627	2	FUNC_001840: mov cx,[edx+eax+0x84] -- object RGB, r,g bytes as the x86 word g<<8|r (planet surface patches -> FUNC_001808 textured triangles)
+115419	2	FUNC_001842: mov cx,[edx+eax+0x84] -- the same, FUNC_001842
+115584	2	FUNC_001844: mov cx,[edx+eax+0x84] -- the same, FUNC_001844
+71372	4	FUNC_000954 (cabin BMP loader): mov eax,[ebp-0xe] -- bfOffBits of the 14-byte BMP FILE header just fread() into [ebp-0x18]; file data is little-endian, the value goes straight to fseek. Unswapped, the pixel rows were read from a wrong file offset (cabin background missing on F2/F3/F4, 2026-10-09).
+71377	2	FUNC_000954: movsx edi,word [edx+0x2] -- width word of the target bitmap header ([DATA_008241], raw ffebmp data), same field as the registered 71741/85159/98427 reads; it is the row stride of the fread loop.
+
+# 2026-10-09: the five FUNC_001432 hot-area walker rows (86070/86073/86076/86079/86081) were REMOVED. They swapped at the read because the hot-area templates used to be copied raw (x86 order) into the list DATA_007683; the templates are be32 now (overrides.tsv: DATA_007258/7684/7259/7241/5108/4906, like DATA_007214) and rects added by GuiAddHotRect/2 were always native, so the whole list is big-endian and the walker must not swap. With the swaps, a click inside a list checkbox rect (124,15)-(132,24) resolved to action ff.
+76684	4p	FUNC_001038 (flight controls): mov eax,[ebx+0xd0] with ebx=DATA_008804 -- DATA_008863/008864 are two be16 words (pointer x,y accumulators; named word accesses at 74308/74309/74434) grabbed as ONE dword. Halves swap, like the manifest's be16 kind (2026-10-09)
+76687	4p	FUNC_001038: mov [ebx+0xd0],eax -- the store twin of 76684; GuiGetXYAccum's Y:X dword lands as [X][Y] words
+79902	4p	FUNC_001088: mov [ebx+0xd0],eax after GuiGetXYAccum -- the DATA_008863/008864 word pair, same as 76687
+79953	4p	FUNC_001088: mov [ebx+0xd0],eax after GuiGetXYAccum -- the DATA_008863/008864 word pair, same as 76687
+108207	2	FUNC_001742 (model opcode 28, mode 0x8000): movsx eax,word [ebx] -- the ROTATION ANGLE word of the raw-LE model stream, sibling of the registered 108179 (other modes). Unswapped, the spinning 'DAVID BRABEN'S' intro text got a different matrix (rows 0/1 negated, off-diagonals halved; TXT1747, both machines), its anchor face tested back-facing and the whole logo was culled (2026-10-16)
+103972	4	FUNC_001703 (model opcode 2, line): lea eax,[ebp-0x6] / mov eax,[eax] -- the RGB courier dword FUNC_001691 wrote byte by byte into the local, read through the pointer and handed to FUNC_001704 -> DPal32to16 (104164). Sibling of the registered 107297 (FUNC_001738). Unswapped, red intro lasers came out teal (2026-10-16)
+# 103944 REMOVED 2026-10-16: FUNC_001703's mov eax,[ebp-0x3] is NOT a DPal courier -- the dword is only left on the stack as FUNC_001693's 7th argument, which reads it byte by byte in ADDRESS order (frame.py PROVEN_SUBWORD 0x20..0x22). Swapped, the garbage 4th byte (top byte of the saved a5) landed in red: intro laser 0x1e44 vs the PC's 0x0e44

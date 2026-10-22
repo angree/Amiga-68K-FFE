@@ -1,0 +1,97 @@
+; COPY of ffe-020-aga-localhdf.uae with sound_output=none (2026-09-25): WinUAE hung at
+; "Enumerating DirectSound devices.." in winuaebootlog.txt twice in a row before opening a window.
+; GENERATED WORKAROUND, 2026-08-06. Identical to ffe-020-aga.uae except
+; that DH0 is mounted from a LOCAL disk.
+;
+; MEASURED: the same boot.hdf, byte for byte, hangs WinUAE forever when
+; mounted from I: (a mapped SMB drive) and opens its window in 5 seconds
+; when mounted from C:. Not the image -- md5 identical either way -- and
+; not the emulator, whose exe is byte-identical to the one running fine in
+; the developer's other project. The directory mount (filesystem2) on I:
+; is UNAFFECTED and stays, so the game's logs still land in winuae\work
+; where the harness reads them.
+;
+; Use with:  autokey_run.ps1 -Config ffe-020-aga-localhdf.uae
+config_description=Amiga_OpenTTD - PURE AGA, JIT ON - DEFAULT for all testing
+; --- CPU: JIT ON (cpu_compatible=false + cachesize) = usable test speed.
+;     JIT OFF (cachesize=0, cpu_compatible=true) made emulation ~20x slower and
+;     turbo useless - do NOT revert. Cycle-exact 040/40 timing needs a separate
+;     JIT-off config; this one is for playing/testing fast. ---
+cpu_type=68020
+cpu_model=68020
+fpu_model=0
+cpu_compatible=false
+cpu_24bit_addressing=false
+cpu_speed=max
+; Calibrated: WinUAE writes this slider in TENTHS of a percent.
+; -700.0 = -70% = SysInfo 1.77 vs A4000/040/25, i.e. a 68040/40.
+; Use otd-aga-max.uae only when raw speed matters more than realism.
+cpu_throttle=0.0
+cachesize=16384
+; --- Chipset: A4000 AGA ---
+chipset=aga
+chipset_compatible=A1200
+chipmem_size=4
+fastmem_size=0
+z3mem_size=32
+; --- Kickstart 3.1 (A4000, verified 40.70) ---
+kickstart_rom_file=I:\GITHUB\Amiga_Frontier_2_First_Encouters\winuae\ROM3.1_A4000.40.70.ROM
+; --- Boot: plain AGA Workbench ---
+hardfile2=ro,DH0:C:\Users\Admin\AppData\Local\ffe-amiga\boot.hdf,32,1,2,512,0,,uae
+; --- WORK: binaries + image data ---
+filesystem2=rw,WORK:Work:I:\GITHUB\Amiga_Frontier_2_First_Encouters\winuae\work,-128
+; --- DELIBERATELY NO gfxcard_size: no uaegfx/RTG board at all, so the
+;     display code MUST use the native AGA path. This is the AGA proof. ---
+; --- Display: DirectDraw so host PrintWindow capture works ---
+gfx_api=0
+gfx_width_windowed=800
+gfx_height_windowed=600
+gfx_fullscreen_amiga=false
+; --- HANDS OFF THE HOST MOUSE (2026-08-01, developer request). This config is
+;     used ONLY by the automated harness, which drives the game through the
+;     PROGDIR:ffe_autokey / ffe_automouse FILE CHANNELS -- it never needs the
+;     host pointer. Previously WinUAE grabbed the cursor on the first click
+;     inside its window and the developer lost the mouse to a test run.
+;     magic_mouse=true + start_not_captured=true = the pointer NEVER gets
+;     trapped; *_not_captured_pause=false keeps the emulation running full
+;     speed while uncaptured (otherwise WinUAE would freeze the test).
+;     For hand-playing use a copy of this file with magic_mouse=false. ---
+magic_mouse=true
+magic_mousecursor=1
+input.mouse_speed=100
+win32.start_not_captured=true
+win32.active_not_captured_pause=false
+win32.active_not_captured_nosound=false
+; --- RUN IN BACKGROUND: no pause when the window is inactive or minimized,
+;     so the developer can work on the primary monitor (or minimize the thing
+;     entirely) while a watch is running. Sound is muted in both states so a
+;     background test is neither seen nor heard. ---
+win32.inactive_pause=false
+win32.inactive_nosound=true
+win32.inactive_iconify=false
+win32.iconified_pause=false
+win32.iconified_nosound=true
+; --- Force the window onto the PRIMARY monitor: on a secondary display the
+;     DirectDraw surface captures as pure black (host-side screenshot fails). ---
+win32.posx=60
+win32.posy=60
+; --- Boot straight into emulation ---
+use_gui=no
+show_leds=true
+sound_output=none
+sound_channels=stereo
+sound_bits=16
+sound_frequency=44100
+sound_interpol=none
+sound_filter=emulated
+sound_stereo_separation=10
+sound_latency=100
+; --- Networking: WinUAE provides bsdsocket.library from the Windows TCP stack,
+;     so no AmiTCP/Roadshow install is needed inside AmigaOS. Without this the
+;     game reports "No network devices found or compiled without ENABLE_NETWORK"
+;     even though the binary IS built with networking.
+bsdsocket_emu=true
+cpu_cycle_exact=false
+cpu_memory_cycle_exact=false
+blitter_cycle_exact=false
+fpu_strict=false

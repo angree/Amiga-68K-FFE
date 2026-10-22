@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+# build outputs, generated locally from the JJFFE disassembly
+build/amiga-out/
+build/xlat*/
+build/data-be/
+build/datamap/
+build/oracle/
+# not distributable: CyberGraphX headers, ROMs, boot images, game files
+amiga/cgx-include/
+*.rom
+*.ROM
+*.hdf
+ref/
+winuae/work/

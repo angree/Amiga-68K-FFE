@@ -1,0 +1,46 @@
+# function	ebp_disp	evidence -- sub-word ARGUMENT slots proven scalar from their callers (every examined caller pushes an immediate, a computed register or a function result). Loaded into frame.PROVEN_BY_CALLERS. Source: build\datamaprg_slots_review.tsv (agent review 2026-10-09 of scan_arg_slots.py's todo list).
+FUNC_000040	0x20	caller 5351; arg7 = 5337 mov eax,[ebp-0x2c] / 5338 push eax; [ebp-0x2c] = result of call FUNC_000031 (5322-5324)
+FUNC_000040	0x24	caller 5351; arg8 = 5335 mov eax,[ebp-0x30] / 5336 push eax; [ebp-0x30] = result of call FUNC_000031 (5327-5329)
+FUNC_000040	0x28	caller 5351; arg9 = 5332 call FUNC_000031 / 5334 push eax (function result)
+FUNC_000234	0x8	18806 mov al,[ebp+0xffffff50] / 18807 add al,[esi+0x3f3a] / 18808 push eax
+FUNC_000239	0x10	18977 push byte +0x22; 19025 push byte +0x1 (the 19026 push byte +0x4 is consumed by call [DATA_007217] / pop ecx)
+FUNC_000271	0xc	11433 push byte +0x0; 26696 push byte +0x0; 27147 push ebx (27109 mov bl,0x5f / 27119 mov bl,0x5f / 27133 mov bl,0x11); 60473 push byte +0x12; 60516 push byte +0x0; 72139 push byte +0x0; 72787 push byte +0x0; 72803 push byte +0x0
+FUNC_000297	0x10	5224 mov eax,[ebp-0x1c] / 5225 push eax ([ebp-0x1c] = result of FUNC_000031, 5207-5209); 23665 movsx eax,byte [edi+0x4eeb] / 23666 push eax
+FUNC_000304	0x8	5475 mov al,[ebp-0x18] / push eax; 8487 mov al,[ebp+0xffffff5b] / push eax; 23929 mov al,[ebp-0x1] / push eax; 24111 push edx (24085 and edx,0xff); 24313 push eax (byte in al: 24295 mov al,0x2 on the visible path; other paths into JUMP_001817 not traced); 24836 push ebx (24826 xor ebx,ebx)
+FUNC_000305	0x8	5463 mov al,[ebp-0x18] / push eax; 8429 mov al,[ebp+0xffffff6b] / push eax; 23938 mov al,[ebp-0x1] / push eax; 24094 mov dl,0xfd / 24101 push edx; 24295 mov al,0x2 / 24302 push eax; 24826 xor ebx,ebx / 24830 push ebx
+FUNC_000309	0x8	21808 mov al,[DATA_009082] / 21809 push eax; 24639 mov al,[esi+0x4eea] / 24642 push eax
+FUNC_000314	0x8	4907 push byte +0x7; 32269-32273 mov al,[ebx+0x2c] / add al,0x44 / shl eax,0x4 / add al,[esi+0x43c] / push eax; 32304-32307 mov al,[ebx+0x2c] / add al,0x4c / shl eax,0x4 / push eax; 33517 mov eax,edi / and al,0xff / push eax
+FUNC_000314	0xc	4906 push byte +0x0; 32268 push byte +0x0; 32303 push byte +0x0; 33516 push byte +0x0
+FUNC_000314	0x24	arg8: 4900 push byte +0x0; 32257 push byte +0x0; 32292 push byte +0x0; 33506 push byte +0x0
+FUNC_000314	0x28	arg9: 4899 push byte +0x0; 32256 push byte +0x0; 32291 push byte +0x0; 33505 push byte +0x0
+FUNC_000344	0xc	26858 mov edx,[esi+0xc8] / 26859 mov dl,[edx+0x56] / 26860 push edx (byte loaded into dl; upper 3 bytes are leftover pointer bits)
+FUNC_000361	0xc	27295 push byte +0x0; 27335 push eax (eax range-checked: 27328 cmp eax,0x9f); 27518 push byte +0x0; 27531 push ebx (27526 mov eax,ebx / and eax,byte +0xf: a number)
+FUNC_000503	0xc	33320 mov eax,[ebx+0x24] / 33321 push eax: a dword load pushed unchanged, but the field is used as a dword flags variable in this code region (32608 mov [eax+0x24],edx / 32610 test dword [eax+0x24],0xffff; 33161 mov [eax+0x24],ecx / 33162 and dword [eax+0x24],byte -0x2). Word reads of it also exist (31938, 33748 mov ax,[ebx+0x24]). Weakest SCALAR in this file
+FUNC_000503	0x10	33319 push esi (loop counter, 33315 xor esi,esi)
+FUNC_000611	0x14	39085 push byte +0x70; 39111 push byte +0x6d; 39139 push byte +0x70; 39164 push byte +0x6d; 39191 push byte +0x70; 39222 push byte +0x6d
+FUNC_000652	0x8	48117 mov al,[ebx+0x86] / push eax; 49140 mov al,[ebx+0x86] / push eax; 75239 mov al,[esi+0xc0] / push eax; 75743 mov al,[esi+0xc0] / push eax
+FUNC_000656	0xc	44648, 44666, 44693, 44705, 44714 all push ebx; bl set by 44638 mov bl,[eax+0x86] and 44660 mov bl,[edx+0x86] (44639 movsx eax,bl)
+FUNC_000664	0x10	4958 mov al,[ebp-0x1c] / 4959 push eax; 23617 mov al,[edi+0x4eeb] / 23624 push eax
+FUNC_000669	0x10	all 4 callers are wrappers FUNC_000665..668 passing their own arg1 through (44987/45001/45015/45029 push dword [ebp+0x8]). Wrapper callers (10 total): 5014 mov eax,[ebp-0x14] / push eax (= FUNC_000031 result, 5004-5006), same shape at 5046, 5078; 22643/22650/22655/22662/22667/22672/22679 mov eax,[esi+0xc0] / push eax with esi=DATA_008804 (22601) - a dword load pushed unchanged, but that global is compared as a dword (18964, 47289 cmp eax,[esi+0xc0]); it is also read by its low byte (75239 mov al,[esi+0xc0])
+FUNC_000694	0x8	46698 mov al,[DATA_008857] / 46699 push eax
+FUNC_000696	0x8	46712 mov al,[DATA_008857] / 46713 push eax
+FUNC_000731	0x14	50939 mov al,[ebp+0x10] / 50940 push eax (inside FUNC_000777, its own byte arg3)
+FUNC_000777	0x10	51010 mov dl,[eax+0x9] / 51011 push edx
+FUNC_000778	0xc	51002 mov dl,[eax+0x8] / 51003 push edx
+FUNC_000780	0x10	50951 push ebx; ebx = 50937 mov ebx,[ebp+0xc] = FUNC_000777 arg2, which its caller pushes as 51012 mov dl,[eax+0x8] / 51013 push edx
+FUNC_000785	0xc	no direct call; reached only through table DATA_006258 (ffedat.asm 9866-9906), dispatched in FUNC_000778: 50981 mov edx,[edx+DATA_006258] / 50984 mov cl,[ebp+0xc] / 50985 push ecx / 50986 push eax / 50987 call edx
+FUNC_000786	0xc	no direct call; table DATA_006258 entry (ffedat.asm 10006), same dispatch: 50984 mov cl,[ebp+0xc] / 50985 push ecx / 50987 call edx
+FUNC_000790	0xc	51204 mov al,[ebp+0xc] / 51205 push eax (in FUNC_000786); 51280 push ebx with 51265 mov ebx,[ebp+0xc] in FUNC_000789 (itself a DATA_006258 entry, so its arg2 is 50985 push ecx; 51267 movsx eax,bl); FUNC_000790 is also a DATA_006258 entry itself (ffedat.asm, ;0x23) -> 50984 mov cl,[ebp+0xc] / 50985 push ecx
+FUNC_000805	0x10	8 callers, 6 examined: 52593, 52669, 52725, 52774, 52821, 52911 all mov al,[ebp+0x18] / push eax
+FUNC_000810	0x18	52432 movsx ecx,byte [esi+0x9] / 52433 push ecx; 54805 movsx eax,bl / 54806 push eax
+FUNC_000811	0x18	52400 movsx ecx,byte [esi+0x9] / 52401 push ecx; 54736 movsx eax,bl / 54737 push eax; 54863 movsx eax,bl / 54864 push eax
+FUNC_000812	0x18	54770 movsx eax,bl / 54771 push eax
+FUNC_000862	0x14	57994 idiv ecx / 57996 push eax (arithmetic result; the other path into JUMP_003465 was not traced); 58011 push byte +0x0
+FUNC_000902	0x8	30660 mov ax,[ebp-0x40] / 30661 and ax,0xffff / 30662 push eax
+FUNC_000910	0xc	67663 push byte +0x0; 67674 push byte +0x1
+FUNC_000924	0xc	69089 push byte +0x0 (in FUNC_000925); 70837 mov eax,edi / 70838 push eax with 70658 mov edi,[ebp+0xc] = FUNC_000942 arg2 passed through (70660 test edi,edi). FUNC_000942 callers: 5388 mov eax,[ebp-0x18] / push eax (local, origin not traced); 71282 mov eax,[ebp+0x10] / push eax (another pass-through, not traced further). No push dword [mem] of a record seen
+FUNC_001068	0x8	79307 push byte +0xe; 79652 push byte +0x18; 79810 push byte +0x22; 79252 mov eax,[ebp+0x8] / push eax in wrapper FUNC_001067, whose 7 callers push 79486 byte +0x10, 79511 +0x12, 79539 +0x14, 79676 +0x28, 79716 +0x1c, 79743 +0x1e and 79568 mov eax,[ebp+0x8] / push eax (pass-through, not traced)
+FUNC_001070	0xc	79436 mov eax,[ebp+0xc] / 79437 push eax in wrapper FUNC_001071 (pass-through of its arg2). FUNC_001071 callers (7 + 80128): 79577 push byte +0x0; 80117 push byte +0x0; 80126 push byte +0x0; 79627 and 79634 push ebx (79623 mov ebx,[ebp+0x8]); 79452 and 79607 mov eax,[ebp+0xc] / push eax (pass-throughs, not traced further). No push dword [mem] of a record seen
+# FUNC_000580 0x14 / 0x18 (collision: vertex index and flags bytes) are PROVEN SCALAR by their caller (ffe.asm:38712-38727) but DELIBERATELY NOT LISTED: with them flipped the ship is destroyed the moment it leaves the pad (state 0x30 -> 0x2c), bisected 2026-10-09. The collision path then runs for real and something further down (FUNC_000582 / FUNC_000583) is still wrong. Re-enable together with a paired probe at FUNC_000582.
+FUNC_000580	0x14	vertex INDEX byte: caller ffe.asm:38708-38721 pushes a zero-extended eax (0x00000014 for the station bay). Enabled 2026-10-16 TOGETHER with FUNC_000583's raw-record pass-through (frame.py), the fault that made it fatal on 2026-10-09
+FUNC_000580	0x18	axis/sign FLAGS byte: caller ffe.asm:38708-38721 pushes edx with only dl loaded. Same evidence and same date as 0x14

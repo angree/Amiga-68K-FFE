@@ -1,0 +1,8 @@
+# never convert endings on files whose consumers are byte-sensitive
+*.s   -text
+*.ps1 -text
+winuae/work/* -text
+# bash refuses to run a CRLF script -- it glues "\r" onto every token and the
+# script ends without doing anything, while the log looks perfectly normal.
+# This cost a whole day on the OpenTTD port. Pin LF regardless of core.autocrlf.
+*.sh  text eol=lf

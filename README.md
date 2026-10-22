@@ -1,0 +1,114 @@
+# Frontier: First Encounters — Amiga 68k (based on JJFFE)
+
+A native AmigaOS port of **Frontier: First Encounters** (1995, originally developed by Frontier
+Developments) for classic Amigas with an accelerator, based on John Jordan's **JJFFE**. The Amiga
+version was announced in 1995 and never released; this is an attempt to finish it.
+
+It is a replacement executable: you need the original **DOS** game for its data. No game content
+is included.
+
+Unofficial fan project, not affiliated with or endorsed by Frontier Developments.
+
+## Status
+
+Playable. Compared frame by frame against the PC reference (JJFFE) and matching it: intro, cockpit
+views, all console screens and starport services, galactic/system maps, trading, take-off,
+flight, hyperspace, docking at stations, landing on planets, saving and loading.
+
+Not yet: music (the floppy release has none), performance work (expect a low frame rate below a
+68060; the code is not optimised yet).
+
+## Requirements
+
+- AmigaOS 3.x, AGA chipset or a graphics card (Picasso96/CyberGraphX, 8-bit mode)
+- 68020 or better (no FPU needed), 32 MB fast RAM recommended
+- The original DOS game files (floppy or CD version)
+
+## Installation
+
+1. Create a folder for the game, e.g. `Games:FFE/`, and copy `ffe_game` and `ffe-prefs` into it.
+2. Copy your **whole original DOS game folder, as it is**, into a subfolder called `FFE`
+   next to the executable. Do not pick or rename files — copy everything:
+
+   ```
+   Games:FFE/ffe_game
+   Games:FFE/FFE/MISSION.DAT
+   Games:FFE/FFE/CABIN0.BMP ... CABIN5.BMP
+   Games:FFE/FFE/FX/...
+   Games:FFE/FFE/COMMANDR/
+   Games:FFE/FFE/...           (everything else from the DOS folder)
+   ```
+
+   The original installer's folder name `Elite3` also works instead of `FFE`, and so do files
+   placed directly next to the executable.
+3. Run `ffe_game` from Workbench or the Shell.
+
+Saved games go to `FFE/COMMANDR/`. Amiga and PC save files are not interchangeable.
+
+## Display settings
+
+Run `ffe-prefs` before the game to choose the display. It opens a small window; from the Shell,
+`ffe-prefs GFX=RTG VIDEO=PAL` saves without one and `ffe-prefs SHOW` prints the settings.
+
+- **Display:** Auto (= AGA), AGA, or RTG (an 8-bit Picasso96/CyberGraphX screen, no
+  chunky-to-planar, faster). If no RTG mode is available, the game falls back to AGA.
+- **Video** (AGA only): as the machine boots, PAL (50 Hz) or NTSC (60 Hz). Forcing the other
+  standard needs its monitor driver in `Devs:Monitors` (e.g. `NTSC` on a PAL machine); without it
+  the game uses the machine's default.
+
+The settings are stored in `amiffe.cfg` next to the executable, one `key=value` per line
+(`gfx=0|1|2`, `video=0|1|2`), and can also be edited by hand.
+
+## Playing
+
+The controls are the original game's. A few that are easy to miss:
+
+- **Esc twice** opens the game menu (save, load, options).
+- **Shift+F1…F5** — time acceleration.
+- **F3** galactic map → pick a star → **F1** → **H** to hyperspace (outside the atmosphere).
+- **n** — navigation target list; selecting a target engages the autopilot.
+
+## How it is made
+
+The game itself is **not rewritten**. JJFFE is John Jordan's annotated disassembly of the original
+DOS executable; an x86 → 68k translator written for this project turns it into 68k code mechanically,
+function by function. A few routines are hand-ported, and the original code and tables are
+converted to big-endian. What is new is the translator, the Amiga platform layer (display, sound,
+input, files) and the build tools.
+
+So `ffe_game` is Frontier's program running on a different CPU, in the same way JJFFE is.
+
+## Building from source
+
+The repository holds only the translator, the Amiga platform layer and the build scripts. The
+build also needs the JJFFE disassembly, which is not included. Toolchain: bebbo's amiga-gcc
+(`-mcpu=68020 -msoft-float`) and vasm, under WSL/Linux. The CyberGraphX developer headers
+(`proto/cybergraphics.h` and friends) are not included; put them in `amiga/cgx-include/`. See
+`docs/` and `tools/`.
+
+## Legal
+
+*Frontier: First Encounters* is © Frontier Developments / David Braben. All rights to the game
+remain theirs. This includes its code, which the executable contains in translated form, and its
+graphics, models, data and sound, which are not distributed here.
+
+The original authors have tolerated community versions of the game for a long time. Frontier
+distributed it as shareware through The Elite Club, and JJFFE has been available since the early
+2000s. This port follows the same approach: an executable that needs the original game files, and
+no game data. If the rights holders object, it will be taken down.
+
+## Credits
+
+- **David Braben / Frontier Developments** — the original game, © 1995.
+- **John Jordan** — [JJFFE](https://github.com/videogamepreservation/jjffe), the reverse
+  engineering and bug fixes that kept the game alive. This port is built directly on it.
+- **Mark Watson** — [fe2-intro](https://github.com/watsonmw/fe2-intro) and his study of the engine.
+- **Tom Morton** — [GLFrontier](https://github.com/pcercuei/glfrontier).
+- **Jongware** — documentation of the FFE model code format.
+- **Mikael Kalms** — the chunky-to-planar routines used for the AGA display.
+
+## Licence
+
+[MIT](LICENSE) covers only the code written for this project: the translator, the Amiga platform
+layer and the tools. It does not cover any part of the original game or of JJFFE, including the
+game code in translated form inside `ffe_game`.

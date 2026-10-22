@@ -1,0 +1,295 @@
+# POINTER-based BYTE reads of the LOW HALF of a 16-bit field (2026-08-02).
+# line <tab> evidence
+#
+# Why a separate list from le_read_sites.tsv: there is nothing to byte-swap in
+# a single byte. x86 puts a word's low half at offset +0, the 68k puts it at
+# +1, so `mov al,[eax]` on a word field must become `move.b (1,a0),d0`. This
+# list moves the DISPLACEMENT; le_read_sites.tsv swaps a VALUE. Mixing the two
+# would be wrong in both directions.
+#
+# THE CASE THAT FOUND IT -- FUNC_001330_DPalBuild, which builds every palette
+# entry the 3D view uses. It walks a colour-box record of six WORD bounds
+# (min/max for R, G and B at a 4-byte stride) and takes the low byte of each:
+#
+#   mov eax,[esp+0x18] / mov al,[eax]      ; max R   (word at +0)
+#   mov edx,[esp+0x18] / add al,[edx-0x2]  ; min R   (word at -2)
+#   ... the same for G at +4/+2 and B at +8/+6
+#
+# The bounds hold 0..0x10, so their HIGH byte -- which is what the 68k read
+# instead -- is ALWAYS ZERO. All three channels were therefore computed from
+# zero, came out equal, and every palette entry was a pure grey. Measured on
+# the running game: the 3D viewport used 10 distinct palette indices and every
+# single one was R=G=B -- (0,0,0), (4,4,4), (12,12,12), (16,16,16), (20,20,20),
+# (60,60,60), (63,63,63) -- while the 2D console rendered in full colour.
+# That is the whole reason the 3D view was black and white.
+83333	FUNC_001330_DPalBuild: mov al,[eax] -- max R, low byte of the word at box+0
+83335	FUNC_001330_DPalBuild: add al,[edx-0x2] -- min R, low byte of the word at box-2
+83341	FUNC_001330_DPalBuild: mov al,[eax+0x4] -- max G, low byte of the word at box+4
+83343	FUNC_001330_DPalBuild: add al,[edx+0x2] -- min G, low byte of the word at box+2
+83349	FUNC_001330_DPalBuild: mov al,[eax+0x8] -- max B, low byte of the word at box+8
+83351	FUNC_001330_DPalBuild: add al,[edx+0x6] -- min B, low byte of the word at box+6
+#
+# SUB-WORD ACCESSES INTO A DWORD FIELD (2026-08-03). Column 2 is the explicit
+# displacement delta; rows without one still mean +1.
+#
+# THE CASE THAT FOUND IT -- FUNC_000832 packs the player's system id into the
+# single dword field [DATA_008804+0x27c] using three different widths
+# (ffe.asm:56614-56637):
+#
+#   x     = [ebx+0x25c] sar 16, & 0x1fff   -> mov [ebx+0x27c],ax   WORD, low half
+#   y     = [ebx+0x260] sar 16, & 0x1fff   -> or'd in as a DWORD
+#   index = arg1 & 0x3f, << 2              -> mov [ebx+0x27f],al   BYTE 3
+#
+# and the id is consumed as one packed integer by FUNC_000852 (x = bits 0..12,
+# y = bits 13..25, index = bits 26..31, ffe.asm:59681-59700).
+#
+# Untouched, the 68k put x in the HIGH half, where the very next instruction's
+# `and edx,0xfc001fff` erased it, and put the index in the LOW byte instead of
+# the top one. PREDICTED 0x00064000, and the running game MEASURED 0x00064000
+# against the reference's 0x1aa51717 -- the whole system id, and so the entire
+# star system, was wrong because of these four instructions.
+56618	2	FUNC_000832: mov dx,[ebx+0x27c] -- word read of the LOW half of the id dword
+56621	2	FUNC_000832: mov [ebx+0x27c],ax -- word store into the LOW half of the id dword
+56634	-3	FUNC_000832: mov dl,[ebx+0x27f] -- byte 3 (the TOP byte) of the id dword
+56637	-3	FUNC_000832: mov [ebx+0x27f],al -- byte 3 (the TOP byte) of the id dword
+#
+# THE PACKED FLOAT'S EXPONENT, INSIDE A RUN-TIME RECORD (2026-08-05).
+#
+# The star-system generator stores a packed float as ONE DWORD in each 0x44-byte
+# body record and then bumps its EXPONENT with a 16-bit add at +2:
+#
+#     mov  [ebx+edi*4+0xe],eax                 ; the packed float, a dword
+#     add  word [ebx+edi*4+0x10],byte +0x19    ; +25 to its exponent
+#
+# On x86 the high half of a dword at +0xe is at +0x10; on a 68k it is at +0xe,
+# so the unshifted displacement adds 25 to the MANTISSA. frame.py already makes
+# exactly this correction for the same idiom on the STACK (`add word
+# [ebp-0x12],byte +0x32' over the dword at [ebp-0x14], ffe.asm:65325), but a
+# field of a run-time record is neither a stack slot nor a named label, so
+# nothing types it and the site table has to.
+#
+# Evidence, pooled over the whole generator family (ffe.asm:63500-67100, all of
+# them `[reg+reg*4+disp]' into the same 0x44-byte record): the dword-width
+# fields are at -68, -44, +0, +4, +14, +20 and +28, with +0 read as a dword six
+# times and +14 nine times. Every one of the ten sites below is a 16-bit access
+# landing INSIDE one of those dwords, and every constant involved (0x19, 0x38,
+# 0x39, 0x3f, 0x47) is a plausible exponent and an implausible mantissa.
+#
+# All ten take delta -2: the high half of a big-endian dword sits at the dword's
+# own address.
+64119	-2	FUNC_000878: add word [esi+eax*4+0x2],byte +0x3f -- +63 to the exponent of the dword at +0
+64151	-2	FUNC_000878: add word [esi+eax*4+0x10],byte +0x19 -- +25 to the exponent of the dword at +0xe
+65182	-2	FUNC_000882: add word [ebx+edi*4+0x10],byte +0x19 -- +25 to the exponent of the dword at +0xe
+65255	-2	FUNC_000882: add word [ebx+edi*4+0x2],byte +0x3f -- +63 to the exponent of the dword at +0
+65941	-2	FUNC_000884: cmp word [esi+eax*4+0x2],byte +0x47 -- the exponent of the dword at +0, compared
+65943	-2	FUNC_000884: mov word [esi+eax*4+0x2],0x47 -- the exponent of the dword at +0, clamped
+66119	-2	FUNC_000887: mov word [eax+ecx*4+0x2],0x38 -- the exponent of the dword at +0, set
+66175	-2	FUNC_000888: dec word [eax+edx*4+0x2] -- the exponent of the dword at +0, halved
+66295	-2	FUNC_000891: mov word [edi+eax*4+0x2],0x39 -- the exponent of the dword at +0, set
+66509	-2	FUNC_000892: mov word [ebx+eax*4+0x2],0x39 -- the exponent of the dword at +0, set
+#
+# THE 12-BIT COLOUR CODE, STORED AS A DWORD AND READ BACK AS A WORD (2026-09-25).
+# DPal32to16 returns the code in ax; every producer stores it `movzx eax,ax /
+# mov [reg+disp],eax' -- a DWORD (FUNC_001700:103539-103540, FUNC_001761:
+# 110045/110152/110233/110314, FUNC_000115/000125 `mov [edi],eax' into a stride-4
+# stack array) -- and the consumers read it back `mov ax,[reg]' (a WORD at the
+# dword's own address) to hand to DPal16toPal. On x86 that is the low half; on
+# the 68k it is the HIGH half, always ZERO, and DATA_007770[0] = 1 maps code 0
+# to palette index 0. Measured in the intro: logo, ships and asteroids all
+# drawn in index 0 while the reference uses the grey ramp 1..15. Delta +2.
+111962	2	FUNC_001791: mov ax,[ebx+0x4] -- the deferred polygon's colour code, low half of the dword the producers store
+12623	2	FUNC_000115: mov ax,[ebx] -- picture palette code array (stride 4, `mov [edi],eax' at 12610), low half
+14222	2	FUNC_000125: mov ax,[ebx] -- as 12623, second picture loader (`mov [edi],eax' at 14211)
+# The same idiom in the other deferred-draw handlers (audit of all 23
+# `call near [DATA_007631]' sites; producers checked by reading every
+# `mov dword [..],FUNC_18xx' writer and the colour store that follows it --
+# all `movzx eax,ax / mov [..],eax', or FUNC_001838's `mov [edi],eax' loop for
+# the 7-entry arrays of 1805/1807). MEASURED FIRST: PALMAP on the running intro
+# showed code 000 from FUNC_001799/1805/1809/1810/1814 (2.3 million calls) where
+# the reference's PCPALMAP shows the greys 111..fff. NOT listed, on purpose:
+# FUNC_001806/1808's `mov ax,[ebx]' / `[ebx+0x2]' pairs, whose producer
+# FUNC_001839 stores WORDS (`mov [esi],ax' / `mov [esi+0x2],ax'), and which
+# PALMAP already shows correct (codes 831, 842, ...).
+112111	2	FUNC_001799: mov ax,[ebx+0x4] -- colour code, low half of the dword (writers 103555/105777/106108/110091/110152/110233/110314)
+112139	2	FUNC_001800: mov ax,[ebx+0x4] -- colour code, low half of the dword (writer 103896)
+112173	2	FUNC_001801: mov ax,[ebx+0x14] -- colour code, low half of the dword (writer 103853)
+112184	2	FUNC_001801: mov ax,[ebx+0x4] -- colour code, low half of the dword (writer 103810)
+112218	2	FUNC_001802: mov ax,[ebx+0x14] -- as 112175, same item built at 103789-103853 (1801 and 1802 share the writer)
+112230	2	FUNC_001802: mov ax,[ebx+0x4] -- as 112186
+112268	2	FUNC_001803: mov ax,[ebx+0x14] -- colour code, low half of the dword (writer 104167)
+112295	2	FUNC_001804: mov ax,[ebx+0x10] -- colour code, low half of the dword (writers 104764/114823/115617/115658)
+112328	2	FUNC_001805: mov ax,[ebx] -- 7-entry code array, stride 4, dwords from FUNC_001838 / 132395-132436 / the 105251 and 107351/107481 loops
+112452	2	FUNC_001807: mov ax,[ebx] -- as 112330, array filled by FUNC_001838 (114935-114939)
+112563	2	FUNC_001809: mov ax,[ebx+0x14] -- colour code, low half of the dword (writer 105419)
+112592	2	FUNC_001810: mov ax,[ebx+0x14] -- colour code, low half of the dword (writer 132514, copying the dword [ebp-0xc])
+112638	2	FUNC_001811: mov ax,[ebx+0x24] -- colour code, low half of the dword (writer 107164)
+112718	2	FUNC_001814: mov ax,[ebx+0x8] -- colour code, low half of the dword (writer 110780)
+# SCREEN COORDINATES, SAME IDIOM (2026-09-25). The producers store each
+# projected coordinate as `movsx eax,word [..] / mov [item+f],eax' -- a
+# sign-extended DWORD value -- and the deferred-draw handlers read it back as
+# `mov ax,[ebx+f]'. On the 68k that read took the HIGH half (0 or -1), so
+# every particle, line and quad drawn through these handlers collapsed onto
+# (0,0)/(-1,-1): the intro's stars never appeared. Writers checked one by one:
+# 1800 <- 103885-103888, 1801/1802 <- 103798-103801, 1803 <- 104147-104161,
+# 1811 <- 107137-107158, 1814's point array <- the 110814 loop (movsx/dec/mov
+# [edi],edx). NOT listed: FUNC_001812's `movsx eax,word [ebx+0xa]' / `[ebx+0x8]',
+# whose dword is a raw COPY of a packed {x,y} pair (`mov edx,[ebx] / mov
+# [eax+0x8],edx', 110514-110515), so its halves are already in address order.
+112135	2	FUNC_001800: mov ax,[ebx+0x8] -- particle x, low half of the movsx dword (103886)
+112137	2	FUNC_001800: mov ax,[ebx+0xc] -- particle y (103888)
+112167	2	FUNC_001801: mov ax,[ebx+0x8] -- x (103799)
+112169	2	FUNC_001801: mov ax,[ebx+0xc] -- y (103801)
+112260	2	FUNC_001803: mov ax,[ebx+0x4] -- line x0 (104148)
+112262	2	FUNC_001803: mov ax,[ebx+0x8] -- line y0 (104150)
+112264	2	FUNC_001803: mov ax,[ebx+0xc] -- line x1 (104159)
+112266	2	FUNC_001803: mov ax,[ebx+0x10] -- line y1 (104161)
+112622	2	FUNC_001811: mov ax,[ebx+0x4] -- quad x0 (107138)
+112624	2	FUNC_001811: mov ax,[ebx+0x8] -- quad y0 (107140)
+112626	2	FUNC_001811: mov ax,[ebx+0xc] -- quad x1 (107143)
+112628	2	FUNC_001811: mov ax,[ebx+0x10] -- quad y1 (107146)
+112630	2	FUNC_001811: mov ax,[ebx+0x14] -- quad x2 (107149)
+112632	2	FUNC_001811: mov ax,[ebx+0x18] -- quad y2 (107152)
+112634	2	FUNC_001811: mov ax,[ebx+0x1c] -- quad x3 (107155)
+112636	2	FUNC_001811: mov ax,[ebx+0x20] -- quad y3 (107158)
+112724	2	FUNC_001814: mov ax,[ebx] -- point-array x (the 110814 loop's movsx dword)
+112729	2	FUNC_001814: mov ax,[ebx+0x4] -- point-array y
+112738	2	FUNC_001814: mov ax,[ebx] -- next x / terminator test
+90022	2	FUNC_001508: movsx eax,word [ebx+0xb0] -- MANTISSA (low word) of the packed-float orbit radius obj+0xb0, written whole as a dword at 64693 (mov [esi+0xb0],eax); on the 68k the low word is at +0xb2. Unregistered, the multiplier was the exponent and garbage was added to every body position (objtab 2026-10-09: high dwords ~1e9 vs ~1e5 on the PC).
+90068	2	FUNC_001508: second copy of 90022
+90041	-2	FUNC_001508: movsx eax,word [ebx+0xb2] -- EXPONENT (high word) of the same dword; on the 68k it is at +0xb0. Unregistered, the shift count became mantissa-0x32, i.e. thousands.
+90087	-2	FUNC_001508: second copy of 90041
+65224	2	FUNC_000882: movsx eax,word [ebx+edi*4+0x14] -- MANTISSA of the packed-float angular rate just written whole at 65223; low word is at +0x16 on the 68k (bodies orbited ~300x too fast, 2026-10-09)
+65227	2	FUNC_000882: mov [ebx+edi*4+0x14],ax -- writes the scaled mantissa back into the same low word
+48674	2	FUNC_000738: mov dx,[eax+0x82] -- field atlas review 2026-10-09: low word of the dword obj+0x82: mov dx,[eax+0x82]/mov [eax+0xe6],dx, immediately followed by mov dword [eax+0x82],0x9a (48676); restored by movzx eax,word [ebx+0xe6]/mov [ebx+0x82],eax (45606, 48809)
+19591	-2	FUNC_000246: cmp word [esi+0xa6],byte +0x1d -- field atlas review 2026-10-09: esi=parent body (FUNC_001532 of player.0x56); body+0xa4 is a packed float written whole by FUNC_000880 (mov [esi+0xa4],eax 64656); 0xa6 is its exponent (x86 high word)
+47011	2	FUNC_000708: mov ax,[ebx+0xa4] -- field atlas review 2026-10-09: [extra, struct=big] same function, same register: mov ax,[ebx+0xa4] then sub [ebx+0xa4],edx (47018)
+47028	2	FUNC_000708: mov ax,[ebx+0xa4] -- field atlas review 2026-10-09: [extra, struct=big] as 47011
+47062	2	FUNC_000709: mov di,[ebx+0xa4] -- field atlas review 2026-10-09: [extra, struct=big] same function, same register: mov di,[ebx+0xa4] then sub [ebx+0xa4],esi (47074)
+45994	-3	FUNC_000689: test byte [ebx+0xab],0x80 -- field atlas review 2026-10-09: bit 31 of the dword written a few lines earlier through the same register (mov [reg+0xa8],eax: 45988 / 46069 / 46196)
+46075	-3	FUNC_000690: test byte [ebx+0xab],0x80 -- field atlas review 2026-10-09: bit 31 of the dword written a few lines earlier through the same register (mov [reg+0xa8],eax: 45988 / 46069 / 46196)
+46202	-3	FUNC_000691: test byte [edi+0xab],0x80 -- field atlas review 2026-10-09: bit 31 of the dword written a few lines earlier through the same register (mov [reg+0xa8],eax: 45988 / 46069 / 46196)
+21033	-1	FUNC_000272: test byte [eax+0xca],0x4 -- field atlas review 2026-10-09: [extra, not in obj todo] player-ship flags, dword-written (74078, 31295, 33473)
+29099	-1	FUNC_000394: test byte [ebx+0xca],0x10 -- field atlas review 2026-10-09: [extra] same function, same register: and eax,[ebx+0xc8] at 29073
+47207	1	FUNC_000714: test byte [eax+0xc9],0x4 -- field atlas review 2026-10-09: eax=player ship ([esi+0xc8], esi=DATA_008804); bit 0x400 of the dword flags, cf. test dword [esi+0xc8],0x410 at 80928
+69404	3	FUNC_000929: test byte [ebx+0xc8],0x2 -- field atlas review 2026-10-09: ship flags dword (mov dword [ebx+0xc8],0x40000000 74078; or dword [eax+0xc8],4 33473); FUNC_000929 is ship code (word bc..c4)
+70071	-3	FUNC_000937: test byte [esi+0xcb],0x4 -- field atlas review 2026-10-09: same function, same register: and dword [esi+0xc8],0xfbffffff at 70113 clears exactly the bit this byte test reads
+70670	-1	FUNC_000942: test byte [edx+0xca],0x40 -- field atlas review 2026-10-09: [extra, not in obj todo] player-ship flags, dword-written (74078, 31295, 33473)
+73479	3	FUNC_000991: test byte [eax+0xc8],0x20 -- field atlas review 2026-10-09: [extra, not in obj todo] player-ship flags, dword-written (74078, 31295, 33473)
+73507	3	FUNC_000991: test byte [eax+0xc8],0x40 -- field atlas review 2026-10-09: [extra, not in obj todo] player-ship flags, dword-written (74078, 31295, 33473)
+73521	1	FUNC_000991: test byte [eax+0xc9],0x2 -- field atlas review 2026-10-09: [extra, not in obj todo] player-ship flags, dword-written (74078, 31295, 33473)
+74555	-3	FUNC_001007: test byte [eax+0xcb],0x40 -- field atlas review 2026-10-09: [extra, not in obj todo] player-ship flags, dword-written (74078, 31295, 33473)
+74978	-3	FUNC_001014: test byte [ebx+0xcb],0x40 -- field atlas review 2026-10-09: bit 0x40000000 = the value written whole by mov dword [ebx+0xc8],0x40000000 (74078)
+75338	-1	FUNC_001020: test byte [eax+0xca],0x20 -- field atlas review 2026-10-09: player ship flags bit 0x200000 (mov dword [ebx+0xc8],0x40200000 80411)
+78293	1	FUNC_001056: test byte [eax+0xc9],0x8 -- field atlas review 2026-10-09: object flags bit 0x800 in the cockpit code; flags dword-written (74078, 31295)
+78331	3	FUNC_001056: test byte [eax+0xc8],0x20 -- field atlas review 2026-10-09: eax=[DATA_008804+0xc8]=player ship; flags written as dword (74078/74172 0x40240020, 31295 or [edx+0xc8],eax)
+78505	1	FUNC_001056: test byte [eax+0xc9],0x2 -- field atlas review 2026-10-09: player ship flags bit 0x200; dword-written (74078, 31295)
+78515	3	FUNC_001056: test byte [eax+0xc8],0x40 -- field atlas review 2026-10-09: player ship flags, dword-written (74078, 31295)
+78539	3	FUNC_001056: test byte [eax+0xc8],0x20 -- field atlas review 2026-10-09: player ship flags, dword-written (74078, 31295)
+78739	3	FUNC_001056: test byte [eax+0xc8],0x80 -- field atlas review 2026-10-09: player ship flags, dword-written (74078, 31295)
+80409	3	FUNC_001098: test byte [esi+0xc8],0x8 -- field atlas review 2026-10-09: same function reads the field whole through the same register (mov edx,[esi+0xc8] 80366) and writes mov dword [ebx+0xc8],0x40200000 80411
+80845	-1	FUNC_001099: test byte [eax+0xca],0x40 -- field atlas review 2026-10-09: player ship flags bit 0x400000; dword-written (74078/80411)
+80917	-3	FUNC_001099: test byte [esi+0xcb],0x1 -- field atlas review 2026-10-09: same function, same register: test dword [esi+0xc8],0x410 at 80928
+80960	-3	FUNC_001099: test byte [eax+0xcb],0x1 -- field atlas review 2026-10-09: eax=player ship; flags dword-written (74078)
+81884	3	FUNC_001110: test byte [eax+0xc8],0x20 -- field atlas review 2026-10-09: [extra, not in obj todo] player-ship flags, dword-written (74078, 31295, 33473)
+81894	3	FUNC_001110: test byte [eax+0xc8],0x80 -- field atlas review 2026-10-09: [extra, not in obj todo] player-ship flags, dword-written (74078, 31295, 33473)
+82303	-1	FUNC_001116: test byte [eax+0xca],0x20 -- field atlas review 2026-10-09: [extra, not in obj todo] player-ship flags, dword-written (74078, 31295, 33473)
+82486	1	FUNC_001120: test byte [eax+0xc9],0x8 -- field atlas review 2026-10-09: [extra, not in obj todo] player-ship flags, dword-written (74078, 31295, 33473)
+82503	-1	FUNC_001120: test byte [eax+0xca],0x80 -- field atlas review 2026-10-09: [extra, not in obj todo] player-ship flags, dword-written (74078, 31295, 33473)
+82515	-1	FUNC_001120: test byte [eax+0xca],0x8 -- field atlas review 2026-10-09: [extra, not in obj todo] player-ship flags, dword-written (74078, 31295, 33473)
+82531	-3	FUNC_001120: test byte [eax+0xcb],0x4 -- field atlas review 2026-10-09: [extra, not in obj todo] player-ship flags, dword-written (74078, 31295, 33473)
+82543	-3	FUNC_001120: test byte [eax+0xcb],0x1 -- field atlas review 2026-10-09: [extra, not in obj todo] player-ship flags, dword-written (74078, 31295, 33473)
+82555	3	FUNC_001120: test byte [eax+0xc8],0x4 -- field atlas review 2026-10-09: [extra, not in obj todo] player-ship flags, dword-written (74078, 31295, 33473)
+45604	1	FUNC_000681: mov al,[ebx+0xf8] -- field atlas review 2026-10-09: LOW BYTE OF A WORD (delta +1, not the scanner's +3): saved AI state written as a word at 45660 (xor eax,eax/mov al,[ebx+0xff]/mov [ebx+0xf8],ax) and 45709/45722/45970/46051, restored here with mov al,[ebx+0xf8]/mov [ebx+0xff],al
+48811	1	FUNC_000740: mov al,[ebx+0xf8] -- field atlas review 2026-10-09: LOW BYTE OF A WORD (delta +1, not the scanner's +3): saved AI state written as a word at 45660 (xor eax,eax/mov al,[ebx+0xff]/mov [ebx+0xf8],ax) and 45709/45722/45970/46051, restored here with mov al,[ebx+0xf8]/mov [ebx+0xff],al
+48353	3	FUNC_000731: mov dl,[edx+0x11a] -- field atlas review 2026-10-09: low byte of a dword: obj+0x11a written whole by mov dword [ebx+0x11a],0x1 (51190, same 0x118==0x10 guard), mov [ebx+0x11a],eax (45064, 46673)
+65291	1	FUNC_000882: mov al,[ebx+edi*4+0x42] -- LOW BYTE of the word written one line above (mov [..+0x42],ax); &3 of it becomes rec+0x3e -> obj+0xc8, the shift count of the planet rotation time in FUNC_000880 (64836). High byte read instead -> wrong rotation -> starports misplaced (objtab 2026-10-09).
+69384	2	FUNC_000929 (fuel use): mov ax,[esi+0x2xx] with esi=DATA_008804 -- LOW WORD of a DATA_008935[] thrust dword (be32; written whole as movsx dwords at ffe.asm:31417-31457). Unregistered, the player got the HIGH word = the sign extension: thrust words read 0000 ffff 0000 ffff 0000 ffff instead of 154a eab6 154a eab6 2cb5 eab6, so F7 never lifted the ship (objtab X/W lines, 2026-10-09).
+69386	2	FUNC_000929 (fuel use): mov ax,[esi+0x2xx] with esi=DATA_008804 -- LOW WORD of a DATA_008935[] thrust dword (be32; written whole as movsx dwords at ffe.asm:31417-31457). Unregistered, the player got the HIGH word = the sign extension: thrust words read 0000 ffff 0000 ffff 0000 ffff instead of 154a eab6 154a eab6 2cb5 eab6, so F7 never lifted the ship (objtab X/W lines, 2026-10-09).
+69388	2	FUNC_000929 (fuel use): mov ax,[esi+0x2xx] with esi=DATA_008804 -- LOW WORD of a DATA_008935[] thrust dword (be32; written whole as movsx dwords at ffe.asm:31417-31457). Unregistered, the player got the HIGH word = the sign extension: thrust words read 0000 ffff 0000 ffff 0000 ffff instead of 154a eab6 154a eab6 2cb5 eab6, so F7 never lifted the ship (objtab X/W lines, 2026-10-09).
+69390	2	FUNC_000929 (fuel use): mov ax,[esi+0x2xx] with esi=DATA_008804 -- LOW WORD of a DATA_008935[] thrust dword (be32; written whole as movsx dwords at ffe.asm:31417-31457). Unregistered, the player got the HIGH word = the sign extension: thrust words read 0000 ffff 0000 ffff 0000 ffff instead of 154a eab6 154a eab6 2cb5 eab6, so F7 never lifted the ship (objtab X/W lines, 2026-10-09).
+69392	2	FUNC_000929 (fuel use): mov ax,[esi+0x2xx] with esi=DATA_008804 -- LOW WORD of a DATA_008935[] thrust dword (be32; written whole as movsx dwords at ffe.asm:31417-31457). Unregistered, the player got the HIGH word = the sign extension: thrust words read 0000 ffff 0000 ffff 0000 ffff instead of 154a eab6 154a eab6 2cb5 eab6, so F7 never lifted the ship (objtab X/W lines, 2026-10-09).
+69394	2	FUNC_000929 (fuel use): mov ax,[esi+0x2xx] with esi=DATA_008804 -- LOW WORD of a DATA_008935[] thrust dword (be32; written whole as movsx dwords at ffe.asm:31417-31457). Unregistered, the player got the HIGH word = the sign extension: thrust words read 0000 ffff 0000 ffff 0000 ffff instead of 154a eab6 154a eab6 2cb5 eab6, so F7 never lifted the ship (objtab X/W lines, 2026-10-09).
+69422	1	FUNC_000929: test byte [esi+0xc6],0x1 with esi=DATA_008804 -- bit 0 of the be16 word DATA_008860 (set by or word [esi+0xc6],1 at 69430); the low byte is at +0xc7 on the 68k.
+28366	3	FUNC_000381: byte access through a register base -- DATA_008857 via DATA_008804+0xc0; the label is big-endian and its NAMED byte accesses already use the low-byte address (scan_base_offsets.py, 2026-10-09)
+75239	3	FUNC_001019: byte access through a register base -- DATA_008857 via DATA_008804+0xc0; the label is big-endian and its NAMED byte accesses already use the low-byte address (scan_base_offsets.py, 2026-10-09)
+75743	3	FUNC_001024: byte access through a register base -- DATA_008857 via DATA_008804+0xc0; the label is big-endian and its NAMED byte accesses already use the low-byte address (scan_base_offsets.py, 2026-10-09)
+34642	3	FUNC_000534: byte access through a register base -- DATA_009059 via DATA_008804+0x48fc; the label is big-endian and its NAMED byte accesses already use the low-byte address (scan_base_offsets.py, 2026-10-09)
+79384	3	FUNC_001070: byte access through a register base -- DATA_008879 via DATA_008804+0xf4; the label is big-endian and its NAMED byte accesses already use the low-byte address (scan_base_offsets.py, 2026-10-09)
+80253	1	FUNC_001094: byte access through a register base -- byte 1 of DATA_009091 via DATA_008804+0x50d9; the label is big-endian and its NAMED byte accesses already use the low-byte address (scan_base_offsets.py, 2026-10-09)
+80258	1	FUNC_001094: byte access through a register base -- byte 1 of DATA_009091 via DATA_008804+0x50d9; the label is big-endian and its NAMED byte accesses already use the low-byte address (scan_base_offsets.py, 2026-10-09)
+80263	1	FUNC_001094: byte access through a register base -- byte 1 of DATA_009091 via DATA_008804+0x50d9; the label is big-endian and its NAMED byte accesses already use the low-byte address (scan_base_offsets.py, 2026-10-09)
+10734	3	FUNC_000082: byte access through a register base -- DATA_008574[] via DATA_008572+8; the label is big-endian and its NAMED byte accesses already use the low-byte address (scan_base_offsets.py, 2026-10-09)
+10749	3	FUNC_000082: byte access through a register base -- DATA_008574[] via DATA_008572+8; the label is big-endian and its NAMED byte accesses already use the low-byte address (scan_base_offsets.py, 2026-10-09)
+11466	3	FUNC_000090: byte access through a register base -- DATA_008574[] via pointer; the label is big-endian and its NAMED byte accesses already use the low-byte address (scan_base_offsets.py, 2026-10-09)
+11496	3	FUNC_000090: byte access through a register base -- DATA_008574[] via DATA_008576-8; the label is big-endian and its NAMED byte accesses already use the low-byte address (scan_base_offsets.py, 2026-10-09)
+32272	1	FUNC_000467: byte access through a register base -- low byte of the be16 word DATA_008996 via DATA_008804+0x43c; the label is big-endian and its NAMED byte accesses already use the low-byte address (scan_base_offsets.py, 2026-10-09)
+40361	2	FUNC_000598: low WORD of a dword thrust vector component read through the output pointer (mov r16,[ptr+k] -> [obj+0xb6..0xba]); the vector is written as dwords just above (2026-10-09, take-off)
+40363	2	FUNC_000598: low WORD of a dword thrust vector component read through the output pointer (mov r16,[ptr+k] -> [obj+0xb6..0xba]); the vector is written as dwords just above (2026-10-09, take-off)
+40365	2	FUNC_000598: low WORD of a dword thrust vector component read through the output pointer (mov r16,[ptr+k] -> [obj+0xb6..0xba]); the vector is written as dwords just above (2026-10-09, take-off)
+40430	2	FUNC_000599: low WORD of a dword thrust vector component read through the output pointer (mov r16,[ptr+k] -> [obj+0xb6..0xba]); the vector is written as dwords just above (2026-10-09, take-off)
+40433	2	FUNC_000599: low WORD of a dword thrust vector component read through the output pointer (mov r16,[ptr+k] -> [obj+0xb6..0xba]); the vector is written as dwords just above (2026-10-09, take-off)
+40436	2	FUNC_000599: low WORD of a dword thrust vector component read through the output pointer (mov r16,[ptr+k] -> [obj+0xb6..0xba]); the vector is written as dwords just above (2026-10-09, take-off)
+40546	2	FUNC_000600: low WORD of a dword thrust vector component read through the output pointer (mov r16,[ptr+k] -> [obj+0xb6..0xba]); the vector is written as dwords just above (2026-10-09, take-off)
+40549	2	FUNC_000600: low WORD of a dword thrust vector component read through the output pointer (mov r16,[ptr+k] -> [obj+0xb6..0xba]); the vector is written as dwords just above (2026-10-09, take-off)
+40552	2	FUNC_000600: low WORD of a dword thrust vector component read through the output pointer (mov r16,[ptr+k] -> [obj+0xb6..0xba]); the vector is written as dwords just above (2026-10-09, take-off)
+74743	1	FUNC_001008: byte of the be16 word DATA_008860 through DATA_008804+0xc6/0xc7 (named byte accesses use DATA_008860+1) (2026-10-09, take-off)
+76183	1	FUNC_001033: byte of the be16 word DATA_008860 through DATA_008804+0xc6/0xc7 (named byte accesses use DATA_008860+1) (2026-10-09, take-off)
+76192	1	FUNC_001033: byte of the be16 word DATA_008860 through DATA_008804+0xc6/0xc7 (named byte accesses use DATA_008860+1) (2026-10-09, take-off)
+82248	1	FUNC_001116: byte of the be16 word DATA_008860 through DATA_008804+0xc6/0xc7 (named byte accesses use DATA_008860+1) (2026-10-09, take-off)
+82250	-1	FUNC_001116: byte of the be16 word DATA_008860 through DATA_008804+0xc6/0xc7 (named byte accesses use DATA_008860+1) (2026-10-09, take-off)
+82571	1	FUNC_001120: byte of the be16 word DATA_008860 through DATA_008804+0xc6/0xc7 (named byte accesses use DATA_008860+1) (2026-10-09, take-off)
+39081	2	FUNC_000585 (rotation-rate damping): mov ax,[edi] with edi = lea [ebp-0x4] -- the LOW WORD of a local dword written whole (mov [edi],eax/esi, neg dword [edi]); unflipped, the rates +0xb0/+0xb2/+0xb4 are never damped and the ship spins after take-off (2026-10-09)
+39107	2	FUNC_000585 (rotation-rate damping): mov ax,[edi] with edi = lea [ebp-0x4] -- the LOW WORD of a local dword written whole (mov [edi],eax/esi, neg dword [edi]); unflipped, the rates +0xb0/+0xb2/+0xb4 are never damped and the ship spins after take-off (2026-10-09)
+39135	2	FUNC_000585 (rotation-rate damping): mov ax,[edi] with edi = lea [ebp-0x4] -- the LOW WORD of a local dword written whole (mov [edi],eax/esi, neg dword [edi]); unflipped, the rates +0xb0/+0xb2/+0xb4 are never damped and the ship spins after take-off (2026-10-09)
+39160	2	FUNC_000585 (rotation-rate damping): mov ax,[edi] with edi = lea [ebp-0x4] -- the LOW WORD of a local dword written whole (mov [edi],eax/esi, neg dword [edi]); unflipped, the rates +0xb0/+0xb2/+0xb4 are never damped and the ship spins after take-off (2026-10-09)
+39187	2	FUNC_000585 (rotation-rate damping): mov ax,[edi] with edi = lea [ebp-0x4] -- the LOW WORD of a local dword written whole (mov [edi],eax/esi, neg dword [edi]); unflipped, the rates +0xb0/+0xb2/+0xb4 are never damped and the ship spins after take-off (2026-10-09)
+39202	2	FUNC_000585 (rotation-rate damping): mov ax,[edi] with edi = lea [ebp-0x4] -- the LOW WORD of a local dword written whole (mov [edi],eax/esi, neg dword [edi]); unflipped, the rates +0xb0/+0xb2/+0xb4 are never damped and the ship spins after take-off (2026-10-09)
+39218	2	FUNC_000585 (rotation-rate damping): mov ax,[edi] with edi = lea [ebp-0x4] -- the LOW WORD of a local dword written whole (mov [edi],eax/esi, neg dword [edi]); unflipped, the rates +0xb0/+0xb2/+0xb4 are never damped and the ship spins after take-off (2026-10-09)
+39233	2	FUNC_000585 (rotation-rate damping): mov ax,[edi] with edi = lea [ebp-0x4] -- the LOW WORD of a local dword written whole (mov [edi],eax/esi, neg dword [edi]); unflipped, the rates +0xb0/+0xb2/+0xb4 are never damped and the ship spins after take-off (2026-10-09)
+59981	-3	FUNC_000857: sub-word access through esi = lea [ebp-0x4] to a local DWORD (packed system coordinates, 13+13+6 bits) written and returned whole (scan_local_ptr.py, 2026-10-09)
+59990	2	FUNC_000857: sub-word access through esi = lea [ebp-0x4] to a local DWORD (packed system coordinates, 13+13+6 bits) written and returned whole (scan_local_ptr.py, 2026-10-09)
+59992	2	FUNC_000857: sub-word access through esi = lea [ebp-0x4] to a local DWORD (packed system coordinates, 13+13+6 bits) written and returned whole (scan_local_ptr.py, 2026-10-09)
+59995	2	FUNC_000857: sub-word access through esi = lea [ebp-0x4] to a local DWORD (packed system coordinates, 13+13+6 bits) written and returned whole (scan_local_ptr.py, 2026-10-09)
+60017	2	FUNC_000857: sub-word access through esi = lea [ebp-0x4] to a local DWORD (packed system coordinates, 13+13+6 bits) written and returned whole (scan_local_ptr.py, 2026-10-09)
+60019	2	FUNC_000857: sub-word access through esi = lea [ebp-0x4] to a local DWORD (packed system coordinates, 13+13+6 bits) written and returned whole (scan_local_ptr.py, 2026-10-09)
+60022	2	FUNC_000857: sub-word access through esi = lea [ebp-0x4] to a local DWORD (packed system coordinates, 13+13+6 bits) written and returned whole (scan_local_ptr.py, 2026-10-09)
+60048	2	FUNC_000857: sub-word access through esi = lea [ebp-0x4] to a local DWORD (packed system coordinates, 13+13+6 bits) written and returned whole (scan_local_ptr.py, 2026-10-09)
+60067	-3	FUNC_000857: sub-word access through esi = lea [ebp-0x4] to a local DWORD (packed system coordinates, 13+13+6 bits) written and returned whole (scan_local_ptr.py, 2026-10-09)
+60070	-3	FUNC_000857: sub-word access through esi = lea [ebp-0x4] to a local DWORD (packed system coordinates, 13+13+6 bits) written and returned whole (scan_local_ptr.py, 2026-10-09)
+93154	2	FUNC_001564 (project to screen, +160 / 79-): low WORD of a local dword reached through eax = lea [ebp-N]; the dwords are shifted whole just above (scan_local_ptr.py, 2026-10-09)
+93159	2	FUNC_001564 (project to screen, +160 / 79-): low WORD of a local dword reached through eax = lea [ebp-N]; the dwords are shifted whole just above (scan_local_ptr.py, 2026-10-09)
+26187	3	FUNC_000340-ish: test byte [rec+0x18/+0x2c],bit -- the LOW BYTE of the UI list record's ACTION dword (written whole: mov [ebx+0x18],eax at 28091/29301/30012/30477, copied to +0x2c at 30185). Unflipped, bit 0x10 (sell / second column) was never seen: the stock market's Sell box bought (2026-10-09)
+28727	3	FUNC_000386: test byte [rec+0x18/+0x2c],bit -- the LOW BYTE of the UI list record's ACTION dword (written whole: mov [ebx+0x18],eax at 28091/29301/30012/30477, copied to +0x2c at 30185). Unflipped, bit 0x10 (sell / second column) was never seen: the stock market's Sell box bought (2026-10-09)
+30128	3	FUNC_000428: test byte [rec+0x18/+0x2c],bit -- the LOW BYTE of the UI list record's ACTION dword (written whole: mov [ebx+0x18],eax at 28091/29301/30012/30477, copied to +0x2c at 30185). Unflipped, bit 0x10 (sell / second column) was never seen: the stock market's Sell box bought (2026-10-09)
+30163	3	FUNC_000428: test byte [rec+0x18/+0x2c],bit -- the LOW BYTE of the UI list record's ACTION dword (written whole: mov [ebx+0x18],eax at 28091/29301/30012/30477, copied to +0x2c at 30185). Unflipped, bit 0x10 (sell / second column) was never seen: the stock market's Sell box bought (2026-10-09)
+30320	3	FUNC_000433: test byte [rec+0x18/+0x2c],bit -- the LOW BYTE of the UI list record's ACTION dword (written whole: mov [ebx+0x18],eax at 28091/29301/30012/30477, copied to +0x2c at 30185). Unflipped, bit 0x10 (sell / second column) was never seen: the stock market's Sell box bought (2026-10-09)
+30577	3	station UI: test byte [rec+0x18/+0x2c],bit -- the LOW BYTE of the UI list record's ACTION dword (written whole: mov [ebx+0x18],eax at 28091/29301/30012/30477, copied to +0x2c at 30185). Unflipped, bit 0x10 (sell / second column) was never seen: the stock market's Sell box bought (2026-10-09)
+35371	3	FUNC_000554: test byte [rec+0x18/+0x2c],bit -- the LOW BYTE of the UI list record's ACTION dword (written whole: mov [ebx+0x18],eax at 28091/29301/30012/30477, copied to +0x2c at 30185). Unflipped, bit 0x10 (sell / second column) was never seen: the stock market's Sell box bought (2026-10-09)
+57531	2	FUNC_000840 (galactic map): mov ax,[ebx+0x23a/0x23e] with ebx=DATA_008804 -- the LOW WORD (in-sector fraction) of the 16.16 map cursor dwords (written whole at 56237/56242). Unflipped the camera sat ~0.4 sector away (other stars, other names) and the system under the cursor was never found, so no info text (investigator, 2026-10-09)
+57538	2	FUNC_000840 (galactic map): mov ax,[ebx+0x23a/0x23e] with ebx=DATA_008804 -- the LOW WORD (in-sector fraction) of the 16.16 map cursor dwords (written whole at 56237/56242). Unflipped the camera sat ~0.4 sector away (other stars, other names) and the system under the cursor was never found, so no info text (investigator, 2026-10-09)
+57609	2	FUNC_000840 (galactic map): mov ax,[ebx+0x23a/0x23e] with ebx=DATA_008804 -- the LOW WORD (in-sector fraction) of the 16.16 map cursor dwords (written whole at 56237/56242). Unflipped the camera sat ~0.4 sector away (other stars, other names) and the system under the cursor was never found, so no info text (investigator, 2026-10-09)
+57615	2	FUNC_000840 (galactic map): mov ax,[ebx+0x23a/0x23e] with ebx=DATA_008804 -- the LOW WORD (in-sector fraction) of the 16.16 map cursor dwords (written whole at 56237/56242). Unflipped the camera sat ~0.4 sector away (other stars, other names) and the system under the cursor was never found, so no info text (investigator, 2026-10-09)
+57579	1	FUNC_000840: test byte [ebx+0x24e],0x1 -- low byte of the be16 map-flags word (mov word [esi+0x24e],0x69 at 56261); bit 0 = draw the grid model 0xa6
+58572	2	FUNC_000843: mov ax,[DATA_008958] -- the LOW word of the target system-code dword (plain storage, written whole at 56630); unflipped it read the high word (2026-10-15)
+65067	3	FUNC_000881 (body names): mov dl,[edx] after inc dword [edx] -- the LOW BYTE of a dword counter in the caller's frame (lea eax,[ebp-0x10/0x14/0x18] in FUNC_000878 63907-63911, lea eax,[ebp+0x2c/0x30/0x34] in FUNC_000897 66919-66923). Unflipped it read the high byte, 0: every planet was 'Gateway 0' and every moon 'Gateway 0`' where the PC names them 1..7 / 6a (2026-10-15)
+65074	3	FUNC_000881 (body names): mov dl,[edx] after inc dword [edx] -- the LOW BYTE of a dword counter in the caller's frame (lea eax,[ebp-0x10/0x14/0x18] in FUNC_000878 63907-63911, lea eax,[ebp+0x2c/0x30/0x34] in FUNC_000897 66919-66923). Unflipped it read the high byte, 0: every planet was 'Gateway 0' and every moon 'Gateway 0`' where the PC names them 1..7 / 6a (2026-10-15)
+65099	3	FUNC_000881 (body names): mov dl,[edx] after inc dword [edx] -- the LOW BYTE of a dword counter in the caller's frame (lea eax,[ebp-0x10/0x14/0x18] in FUNC_000878 63907-63911, lea eax,[ebp+0x2c/0x30/0x34] in FUNC_000897 66919-66923). Unflipped it read the high byte, 0: every planet was 'Gateway 0' and every moon 'Gateway 0`' where the PC names them 1..7 / 6a (2026-10-15)
+65107	3	FUNC_000881 (body names): mov dl,[edx] after inc dword [edx] -- the LOW BYTE of a dword counter in the caller's frame (lea eax,[ebp-0x10/0x14/0x18] in FUNC_000878 63907-63911, lea eax,[ebp+0x2c/0x30/0x34] in FUNC_000897 66919-66923). Unflipped it read the high byte, 0: every planet was 'Gateway 0' and every moon 'Gateway 0`' where the PC names them 1..7 / 6a (2026-10-15)
+72084	-2	FUNC_000963: mov word [edx+0x40a],0x2a -- HIGH word of the saved system-map zoom dword DATA_008988 (D8804+0x408, be32; written whole at 67736 / 72134, copied whole into the 8984/8985 pair at 72304). Unflipped the two halves landed swapped: w84=002a w85=7fff where the PC has 7fff/002a (2026-10-15)
+72085	2	FUNC_000963: mov word [edx+0x408],0x7fff -- LOW word of DATA_008988, see 72084 (2026-10-15)
+66504	2	FUNC_000892: mov word [ebx+eax*4],0x0 -- the MANTISSA (low word) of the packed float at +0, partner of 66509 (2026-10-16)
+66567	2	FUNC_000892: movsx edx,word [ebx+eax*4+0x14] -- MANTISSA of the station packed-float rate just written whole at 66562; twin of 65224 (stations orbited ~32x too fast, docking crashed, 2026-10-16)
+66570	2	FUNC_000892: mov [ebx+eax*4+0x14],dx -- writes the scaled mantissa back (twin of 65227)
+64265	2	FUNC_000878: movsx edx,word [esi+eax*4+0x14] -- MANTISSA of the packed float written whole at 64260; same idiom as 65224 (2026-10-16)
+64268	2	FUNC_000878: mov [esi+eax*4+0x14],dx -- writes the scaled mantissa back
+17439	2	FUNC_000213: word read of DATA_004898, the LOW half of a dword-only hotspot field (2026-10-16)
+17441	2	FUNC_000213: word read of DATA_004899, the LOW half of a dword-only hotspot field (2026-10-16)
+17443	2	FUNC_000213: word read of DATA_004900, the LOW half of a dword-only hotspot field (2026-10-16)
+17445	2	FUNC_000213: word read of DATA_004901, the LOW half of a dword-only hotspot field (2026-10-16)
+16632	2	FUNC_000195: word read of DATA_004909, the LOW half of a dword-only hotspot field (2026-10-16)
+16634	2	FUNC_000195: word read of DATA_004910, the LOW half of a dword-only hotspot field (2026-10-16)
+17385	2	FUNC_000211: word read of DATA_004911, the LOW half of a dword-only hotspot field (2026-10-16)
+17387	2	FUNC_000211: word read of DATA_004912, the LOW half of a dword-only hotspot field (2026-10-16)
+17389	2	FUNC_000211: word read of DATA_004913, the LOW half of a dword-only hotspot field (2026-10-16)
+17391	2	FUNC_000211: word read of DATA_004914, the LOW half of a dword-only hotspot field (2026-10-16)
+50794	3	FUNC_000774: mov al,[esi+eax*8] -- the laser TYPE, low byte of the record's first dword now that DATA_006265 is dword-only (2026-10-16)
