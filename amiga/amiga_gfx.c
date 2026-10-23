@@ -157,6 +157,12 @@ static struct Screen *g_screen;
 static struct Window *g_window;
 static struct BitMap  g_bitmap;
 static UBYTE *g_chip;
+/* AROS (2026-10-22): older AROS ROMs ignore SA_BitMap and give the screen its
+ * own bitplanes, so c2p into ours showed a black screen. When that happens the
+ * blit writes into the screen's planes if they have our layout, else through
+ * WriteChunkyPixels. Never triggers on Kickstart or current AROS. */
+static UBYTE *g_aros_planes;
+static int    g_aros_wcp;
 static UBYTE *g_chunky;
 static UBYTE *g_ehb_scratch;              /* NULL unless an EHB screen is open */
 static int    g_ehb_scratch_rows;
@@ -676,6 +682,26 @@ static int open_screen_aga(int w, int h, ULONG quiet, ULONG title, int depth)
 	g_depth   = depth;
 	g_backend = (depth == DEPTH_EHB) ? AMIGAGFX_BACKEND_EHB : AMIGAGFX_BACKEND_AGA;
 
+	g_aros_planes = NULL;
+	g_aros_wcp = 0;
+	{
+		struct BitMap *sb = g_screen->RastPort.BitMap;
+
+		if (depth == DEPTH_AGA && sb != NULL && sb->Planes[0] != g_bitmap.Planes[0]) {
+			int i, same = sb->Depth >= depth && sb->BytesPerRow == g_bpr && sb->Rows >= h
+			              && sb->Planes[0] != NULL && (TypeOfMem(sb->Planes[0]) & MEMF_CHIP);
+
+			for (i = 1; same && i < depth; i++)
+				same = (ULONG)((UBYTE *)sb->Planes[i] - (UBYTE *)sb->Planes[0])
+				       == (ULONG)i * g_planesize;
+			if (same) g_aros_planes = (UBYTE *)sb->Planes[0];
+			else g_aros_wcp = 1;
+			fprintf(stdout, "amiga: AROS: SA_BitMap ignored - drawing into the screen's own %s\n",
+			        same ? "planes" : "bitmap (WriteChunkyPixels)");
+			fflush(stdout);
+		}
+	}
+
 	/* Scratch band for the 6-plane c2p, which takes no chunky rowmod. Allocated
 	 * with the screen so the blit never allocates; if it cannot be had, the EHB
 	 * screen is not opened at all rather than blitting only full-width
@@ -879,6 +905,8 @@ void amigagfx_close(void)
 	 * this is a no-op, which is exactly the point - the card owns the display
 	 * memory and none of the machine's scarce Chip RAM is spent on it. */
 	if (g_chip != NULL)   { FreeMem(g_chip, g_planesize * g_depth); g_chip = NULL; }
+	g_aros_planes = NULL;
+	g_aros_wcp = 0;
 	if (g_chunky != NULL) { FreeVec(g_chunky); g_chunky = NULL; }
 	if (g_ehb_scratch != NULL) { FreeVec(g_ehb_scratch); g_ehb_scratch = NULL; }
 	g_ehb_scratch_rows = 0;
@@ -1347,8 +1375,14 @@ void amigagfx_blit(int x, int y, int w, int h)
 	 * (bplsize) stays the full-screen plane size, only the row origin moves.
 	 * g_bpr is a multiple of 4 for every offered width, so the 32-pixel column
 	 * alignment of the c2p is unaffected. */
-	args.bpl = g_chip + (ULONG)g_yoff * g_bpr;
-	c2p_rect_asm(&args);
+	if (g_aros_wcp) {
+		WriteChunkyPixels(&g_screen->RastPort, (ULONG)x, (ULONG)(y + g_yoff),
+		                  (ULONG)(x2 - 1), (ULONG)(y2 - 1 + g_yoff),
+		                  g_chunky + (ULONG)y * g_width + x, (LONG)g_width);
+	} else {
+		args.bpl = (g_aros_planes ? g_aros_planes : g_chip) + (ULONG)g_yoff * g_bpr;
+		c2p_rect_asm(&args);
+	}
 
 	/* The FIRST blit is logged always - it is the one-shot proof that the main
 	 * loop reached the screen. The every-200th heartbeat costs I/O for the

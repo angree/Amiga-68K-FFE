@@ -26,7 +26,7 @@
 
 #define CFG "PROGDIR:amiffe.cfg"
 
-static const char ver[] = "$VER: ffe-prefs 0.1.0 (16.10.2026)";
+static const char ver[] = "$VER: ffe-prefs 0.1.1 (22.10.2026)";
 
 static int gfx, video;
 

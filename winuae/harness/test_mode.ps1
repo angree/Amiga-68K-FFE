@@ -20,7 +20,6 @@ public class TM {
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
   [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint f);
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
-  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int c);
   [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L,T,R,B; }
   public delegate bool EnumProc(IntPtr h, IntPtr p);
@@ -63,10 +62,9 @@ $lines += 'Work:ffe_game >Work:stdout.txt'
 # FOCUS (2026-10-16): the first runs of this script let WinUAE take the
 # foreground and the developer's typing went into the emulated Amiga. The
 # configs start it minimized (win32.start_minimized=true); it is shown again
-# with SW_SHOWNOACTIVATE, and if it still ends up in front, the previous
-# foreground window gets the focus straight back.
+# with SW_SHOWNOACTIVATE.
 $fg0 = [TM]::GetForegroundWindow()
-$p = Start-Process -FilePath $exe -ArgumentList @('-norawinput', '-f', "`"$cfg`"") -WorkingDirectory (Split-Path $exe) -PassThru
+$p = Start-Process -FilePath $exe -ArgumentList @('-nodirectinput', '-norawinput', '-f', "`"$cfg`"") -WorkingDirectory (Split-Path $exe) -PassThru
 Write-Host "started pid $($p.Id) config $Config"
 $sec = [System.Windows.Forms.Screen]::AllScreens | Where-Object { -not $_.Primary } | Sort-Object { $_.Bounds.X } | Select-Object -First 1
 $h = [IntPtr]::Zero
@@ -77,12 +75,10 @@ try {
     Start-Sleep -Milliseconds 300; $h = [TM]::Find([uint32]$p.Id)
   }
   if ($h -eq [IntPtr]::Zero) { Write-Host "no window"; return }
-  if ([TM]::GetForegroundWindow() -eq $h -and $fg0 -ne [IntPtr]::Zero) { [void][TM]::SetForegroundWindow($fg0) }
-  [void][TM]::ShowWindow($h, 4)
+  [void][TM]::ShowWindow($h, 4)   # SW_SHOWNOACTIVATE; never SetForegroundWindow (EMU_RULES)
   if ($sec) { [void][TM]::SetWindowPos($h, [IntPtr]::Zero, $sec.Bounds.X + 40, $sec.Bounds.Y + 40, 0, 0, 0x0015) }
   for ($i = 0; $i -lt 20; $i++) {
     Start-Sleep -Milliseconds 250
-    if ([TM]::GetForegroundWindow() -eq $h -and $fg0 -ne [IntPtr]::Zero) { [void][TM]::SetForegroundWindow($fg0); Write-Host "focus handed back" }
   }
   foreach ($s in $times) {
     while (((Get-Date) - $t0).TotalSeconds -lt $s) { Start-Sleep -Milliseconds 500 }

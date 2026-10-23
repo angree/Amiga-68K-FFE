@@ -36,6 +36,7 @@
 #include <dos/dos.h>
 #include <dos/dosextens.h>
 #include <proto/dos.h>
+#include <proto/exec.h>
 
 #include <string.h>
 
@@ -518,5 +519,21 @@ void ffe_find_data_dir (void)
 		UnLock (l);
 		l = Lock ((CONST_STRPTR)dirs[i], ACCESS_READ);
 		if (l != 0) { CurrentDir (l); return; }
+	}
+	/* Last: a volume or assign called FFE: (2026-10-22, the AROS/universal
+	 * HDF: the DOS folder mounted as its own drive in WinUAE). No "insert
+	 * volume FFE" requester when it is not there. */
+	{
+		struct Process *me = (struct Process *)FindTask (NULL);
+		APTR win = me->pr_WindowPtr;
+
+		me->pr_WindowPtr = (APTR)-1;
+		l = Lock ((CONST_STRPTR)"FFE:MISSION.DAT", ACCESS_READ);
+		if (l != 0) {
+			UnLock (l);
+			l = Lock ((CONST_STRPTR)"FFE:", ACCESS_READ);
+			if (l != 0) CurrentDir (l);
+		}
+		me->pr_WindowPtr = win;
 	}
 }

@@ -15,9 +15,9 @@
 # ffe-020-aga-alllocal.uae.
 set -e
 # (2026-10-09) the working copy now lives on C:	empmiffe; FFE_SRC overrides
-SRC=${FFE_SRC:-/mnt/c/temp/amiffe}
-LOC=/mnt/c/temp/ffe/mirror
-LWORK=/mnt/c/temp/ffe/work
+SRC=${FFE_SRC:-/mnt/e/GITHUB/amiffe}
+LOC=${FFE_LOC:-/mnt/e/ffe/mirror}
+LWORK=${FFE_LWORK:-/mnt/e/ffe/work}
 TARGET=${1:-ffe_game}
 mkdir -p "$LOC/build" "$LOC/winuae/work" "$LWORK"
 t0=$(date +%s)

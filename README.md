@@ -20,9 +20,19 @@ Not yet: music (the floppy release has none), performance work (expect a low fra
 
 ## Requirements
 
-- AmigaOS 3.x, AGA chipset or a graphics card (Picasso96/CyberGraphX, 8-bit mode)
 - 68020 or better (no FPU needed), 32 MB fast RAM recommended
+- AGA chipset, or a graphics card with an 8-bit Picasso96/CyberGraphX mode
 - The original DOS game files (floppy or CD version)
+
+One executable for every 68k system. Tested in WinUAE with the same binary:
+
+| System | AGA | RTG |
+|---|---|---|
+| AmigaOS 3.1 (Kickstart 3.1 + Workbench 3.1) | yes | yes (Picasso96) |
+| AROS 68k, current nightly ROM and system | yes | yes |
+| Older AROS ROM (e.g. WinUAE's built-in one) with a Workbench boot disk | yes | no RTG on that ROM |
+
+AROS for x86, x86-64 or ARM cannot run 68k programs and is not supported.
 
 ## Installation
 
@@ -40,8 +50,26 @@ Not yet: music (the floppy release has none), performance work (expect a low fra
    ```
 
    The original installer's folder name `Elite3` also works instead of `FFE`, and so do files
-   placed directly next to the executable.
-3. Run `ffe_game` from Workbench or the Shell.
+   placed directly next to the executable. A drive or assign named `FFE:` that holds the game
+   files is used too, so in WinUAE you can add the DOS folder as a directory drive with the
+   volume name `FFE` instead of copying it.
+3. Run `ffe_game` from the Shell, or from Workbench: no icons are included, so use
+   *Window → Show → All Files* and double-click `ffe_game` (the same in AROS Wanderer).
+
+### On a hard disk image (HDF)
+
+No disk image is distributed: the Amiga operating system files are not ours to give away. Use
+your own installation:
+
+- **AmigaOS 3.x:** install Workbench on an HDF as usual (or use the one you already have), then
+  copy the game folder from step 1–2 onto it, e.g. to `Work:Games/FFE/`.
+- **AROS 68k:** the AROS m68k nightly build (from https://www.aros.org, downloads → nightly
+  builds, the `amiga-m68k` boot ISO): copy the ISO's contents to your boot drive or HDF, then
+  copy the game folder onto it the same way. AROS boots from its own ROM files (`aros-rom.bin`
+  + `aros-ext.bin` from the ISO's `boot/amiga/`, in WinUAE as main and extended ROM), or on
+  Kickstart through the AROS boot floppy (`Emergency-Boot.adf`).
+- In **WinUAE** a host folder can also be used instead of an HDF: *Hard drives → Add Directory*,
+  pointing at the game folder.
 
 Saved games go to `FFE/COMMANDR/`. Amiga and PC save files are not interchangeable.
 

@@ -280,10 +280,10 @@ void ffe_park (void)
 		char t[48];
 
 		if (ffe_last_fps10 >= 0)
-			snprintf (t, sizeof t, "AmiFFE 0.1.0  %ld.%ld FPS  PARKED",
+			snprintf (t, sizeof t, "AmiFFE 0.1.1  %ld.%ld FPS  PARKED",
 			          ffe_last_fps10 / 10, ffe_last_fps10 % 10);
 		else
-			snprintf (t, sizeof t, "AmiFFE 0.1.0  PARKED");
+			snprintf (t, sizeof t, "AmiFFE 0.1.1  PARKED");
 		amigagfx_set_bar_text (t);
 	}
 	g_parked = 1;
