@@ -3974,7 +3974,65 @@ static void ffe_trap_restore (void)
 	if (ffe_trap_task) *(void **)(ffe_trap_task + 50) = ffe_trap_old;
 }
 
+/* OWN STACK (2026-10-23, release): the game used to need "Stack 1000000" in
+ * the Shell; started with the default 4 KB, or from an icon, it would run off
+ * its stack. This runtime is newlib, which has no __stack/swapstack, so main()
+ * switches to a 1 MB stack itself with exec's StackSwap (LVO -732). The stack
+ * is BSS, so it is freed with the program. exit() from inside the game skips
+ * the swap back (crt0 restores its saved SP directly), so an atexit handler
+ * puts the task's tc_SPLower/tc_SPUpper (Task offsets 58/62) back first -
+ * otherwise the Shell process would keep bounds pointing into freed memory. */
+#define FFE_STACK_BYTES 1000000
+static unsigned long ffe_stack[FFE_STACK_BYTES / 4] __attribute__ ((aligned (4)));
+static struct { void *lower; unsigned long upper; void *pointer; } ffe_sss;
+static char *ffe_stack_task;
+static unsigned long ffe_stack_bounds[2];
+extern int ffe_call_on_stack (void *sss, int (*fn) (void));
+__asm__ (
+	"	.text\n"
+	"	.even\n"
+	"	.globl	_ffe_call_on_stack\n"
+	"_ffe_call_on_stack:\n"
+	"	movem.l	d2-d7/a2-a6,-(sp)\n"
+	"	move.l	48(sp),a2\n"		/* sss: 11 registers + return address */
+	"	move.l	52(sp),a3\n"		/* fn */
+	"	move.l	a2,a0\n"
+	"	move.l	4.w,a6\n"
+	"	jsr	-732(a6)\n"		/* StackSwap: now on ffe_stack */
+	"	jsr	(a3)\n"
+	"	move.l	d0,d2\n"
+	"	move.l	a2,a0\n"
+	"	move.l	4.w,a6\n"
+	"	jsr	-732(a6)\n"		/* and back */
+	"	move.l	d2,d0\n"
+	"	movem.l	(sp)+,d2-d7/a2-a6\n"
+	"	rts\n");
+static void ffe_stack_bounds_restore (void)
+{
+	*(unsigned long *)(ffe_stack_task + 58) = ffe_stack_bounds[0];
+	*(unsigned long *)(ffe_stack_task + 62) = ffe_stack_bounds[1];
+}
+
+static int ffe_main (void);
+
 int main (void)
+{
+	char *task;
+	__asm__ volatile ("move.l 4.w,a6\n\tsuba.l a1,a1\n\t"
+	                  "jsr (-294,a6)\n\tmove.l d0,%0"
+	                  : "=g"(task) :: "a6", "a1", "d0", "d1", "a0", "cc",
+	                    "memory");
+	ffe_stack_task = task;
+	ffe_stack_bounds[0] = *(unsigned long *)(task + 58);
+	ffe_stack_bounds[1] = *(unsigned long *)(task + 62);
+	atexit (ffe_stack_bounds_restore);
+	ffe_sss.lower = ffe_stack;
+	ffe_sss.upper = (unsigned long)ffe_stack + sizeof ffe_stack;
+	ffe_sss.pointer = (void *)ffe_sss.upper;
+	return ffe_call_on_stack (&ffe_sss, ffe_main);
+}
+
+static int ffe_main (void)
 {
 	{
 		/* soft-run protocol (ffe_watchdog.c): wait while Work:ffe_hold exists */

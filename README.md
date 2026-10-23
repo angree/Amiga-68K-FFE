@@ -15,12 +15,17 @@ Playable. Compared frame by frame against the PC reference (JJFFE) and matching 
 views, all console screens and starport services, galactic/system maps, trading, take-off,
 flight, hyperspace, docking at stations, landing on planets, saving and loading.
 
-Not yet: music (the floppy release has none), performance work (expect a low frame rate below a
-68060; the code is not optimised yet).
+**It is slow.** Nothing has been optimised yet: the translated code runs instruction for
+instruction what the PC executed. Measured in WinUAE without JIT at a speed comparable to a
+68040/40: **2–4 frames per second** in flight. A 68060 or a fast FPGA accelerator is what this
+version needs to be playable. Performance work is the next stage of the project.
+
+Not yet: music (the floppy release has none).
 
 ## Requirements
 
-- 68020 or better (no FPU needed), 32 MB fast RAM recommended
+- 68020 or better (no FPU needed); it runs on a 68020, but see Status: a 68060 or a fast
+  FPGA accelerator is needed for a usable frame rate. 32 MB fast RAM recommended
 - AGA chipset, or a graphics card with an 8-bit Picasso96/CyberGraphX mode
 - The original DOS game files (floppy or CD version)
 
@@ -36,25 +41,26 @@ AROS for x86, x86-64 or ARM cannot run 68k programs and is not supported.
 
 ## Installation
 
-1. Create a folder for the game, e.g. `Games:FFE/`, and copy `ffe_game` and `ffe-prefs` into it.
-2. Copy your **whole original DOS game folder, as it is**, into a subfolder called `FFE`
-   next to the executable. Do not pick or rename files — copy everything:
+1. Unpack the archive where you keep games, e.g. `Games:`. It holds the `AmiFFE` drawer (with
+   its icon): `ffe_game`, `ffe-prefs`, this README and Workbench icons for all of them.
+2. Copy your **whole original DOS game folder, as it is**, into a new folder called `FFE`
+   inside the `AmiFFE` drawer. Do not pick or rename files — copy everything:
 
    ```
-   Games:FFE/ffe_game
-   Games:FFE/FFE/MISSION.DAT
-   Games:FFE/FFE/CABIN0.BMP ... CABIN5.BMP
-   Games:FFE/FFE/FX/...
-   Games:FFE/FFE/COMMANDR/
-   Games:FFE/FFE/...           (everything else from the DOS folder)
+   Games:AmiFFE/ffe_game
+   Games:AmiFFE/FFE/MISSION.DAT
+   Games:AmiFFE/FFE/CABIN0.BMP ... CABIN5.BMP
+   Games:AmiFFE/FFE/FX/...
+   Games:AmiFFE/FFE/COMMANDR/
+   Games:AmiFFE/FFE/...           (everything else from the DOS folder)
    ```
 
    The original installer's folder name `Elite3` also works instead of `FFE`, and so do files
    placed directly next to the executable. A drive or assign named `FFE:` that holds the game
    files is used too, so in WinUAE you can add the DOS folder as a directory drive with the
    volume name `FFE` instead of copying it.
-3. Run `ffe_game` from the Shell, or from Workbench: no icons are included, so use
-   *Window → Show → All Files* and double-click `ffe_game` (the same in AROS Wanderer).
+3. Double-click the `ffe_game` icon, or run `ffe_game` from the Shell. The game sets up its own
+   1 MB stack, so no `Stack` command or icon setting is needed.
 
 ### On a hard disk image (HDF)
 
@@ -62,7 +68,7 @@ No disk image is distributed: the Amiga operating system files are not ours to g
 your own installation:
 
 - **AmigaOS 3.x:** install Workbench on an HDF as usual (or use the one you already have), then
-  copy the game folder from step 1–2 onto it, e.g. to `Work:Games/FFE/`.
+  copy the `AmiFFE` drawer from steps 1–2 onto it, e.g. to `Work:Games/AmiFFE/`.
 - **AROS 68k:** the AROS m68k nightly build (from https://www.aros.org, downloads → nightly
   builds, the `amiga-m68k` boot ISO): copy the ISO's contents to your boot drive or HDF, then
   copy the game folder onto it the same way. AROS boots from its own ROM files (`aros-rom.bin`
@@ -71,11 +77,11 @@ your own installation:
 - In **WinUAE** a host folder can also be used instead of an HDF: *Hard drives → Add Directory*,
   pointing at the game folder.
 
-Saved games go to `FFE/COMMANDR/`. Amiga and PC save files are not interchangeable.
+Saved games go to `AmiFFE/FFE/COMMANDR/`. Amiga and PC save files are not interchangeable.
 
 ## Display settings
 
-Run `ffe-prefs` before the game to choose the display. It opens a small window; from the Shell,
+Run `ffe-prefs` (double-click its icon) before the game to choose the display. It opens a small window; from the Shell,
 `ffe-prefs GFX=RTG VIDEO=PAL` saves without one and `ffe-prefs SHOW` prints the settings.
 
 - **Display:** Auto (= AGA), AGA, or RTG (an 8-bit Picasso96/CyberGraphX screen, no

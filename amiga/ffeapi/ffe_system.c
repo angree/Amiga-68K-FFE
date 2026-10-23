@@ -36,13 +36,13 @@
 #include "ffeapi.h"
 #include "amiga_gfx.h"
 
-#define FFE_BAR_TITLE "AmiFFE 0.1.1"
+#define FFE_BAR_TITLE "AmiFFE 0.1.2"
 
 /* Version string for the Version command, and the credits in plain text in
  * the binary. Frontier: First Encounters (c) Frontier Developments; this port
  * is an unofficial fan project based on John Jordan's JJFFE. */
 const char ffe_version_tag[] =
-	"$VER: AmiFFE 0.1.1 (22.10.2026) Frontier: First Encounters "
+	"$VER: AmiFFE 0.1.2 (23.10.2026) Frontier: First Encounters "
 	"(c) Frontier Developments - Amiga port based on JJFFE by John Jordan";
 
 static int g_ready;

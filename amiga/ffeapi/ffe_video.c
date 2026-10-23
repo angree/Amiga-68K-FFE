@@ -1236,7 +1236,7 @@ static void fps_overlay (void)
 		if (ffe_bar_on) {
 			if (fps10 != shown) {
 				char t[48];
-				snprintf (t, sizeof t, "AmiFFE 0.1.1      %ld.%ld FPS",
+				snprintf (t, sizeof t, "AmiFFE 0.1.2      %ld.%ld FPS",
 				          fps10 / 10, fps10 % 10);
 				amigagfx_set_bar_text (t);
 				shown = fps10;

@@ -26,7 +26,14 @@
 
 #define CFG "PROGDIR:amiffe.cfg"
 
-static const char ver[] = "$VER: ffe-prefs 0.1.1 (22.10.2026)";
+static const char ver[] = "$VER: ffe-prefs 0.1.2 (23.10.2026)";
+
+/* Messages are for the Shell only: started from Workbench, libnix would open
+ * a console window for the first printf. Do NOT set __stdiowin to "NIL:" to
+ * avoid that (2026-10-23): measured, the program then never reaches main()
+ * when started from an icon, so the window never opened. */
+static int from_wb;
+#define say(...) do { if (!from_wb) printf (__VA_ARGS__); } while (0)
 
 static int gfx, video;
 
@@ -96,7 +103,7 @@ static int window (void)
 	struct NewGadget ng;
 	int fh, bt, lx, gw, done = 0, ok = 0;
 
-	if (scr == NULL) { printf ("ffe-prefs: no public screen\n"); return 0; }
+	if (scr == NULL) { say ("ffe-prefs: no public screen\n"); return 0; }
 	vi = GetVisualInfo (scr, TAG_END);
 	if (vi == NULL) goto out;
 	fh = scr->Font->ta_YSize;
@@ -124,7 +131,7 @@ static int window (void)
 	ng.ng_LeftEdge = lx + gw - 10 * 8;
 	ng.ng_GadgetText = (STRPTR)"_Cancel"; ng.ng_GadgetID = G_CANCEL;
 	g = CreateGadget (BUTTON_KIND, g, &ng, GT_Underscore, '_', TAG_END);
-	if (g == NULL) { printf ("ffe-prefs: CreateGadget failed\n"); goto out; }
+	if (g == NULL) { say ("ffe-prefs: CreateGadget failed\n"); goto out; }
 
 	win = OpenWindowTags (NULL,
 		WA_PubScreen, (ULONG)scr,
@@ -136,8 +143,8 @@ static int window (void)
 		WA_DragBar, TRUE, WA_DepthGadget, TRUE, WA_CloseGadget, TRUE, WA_Activate, TRUE,
 		WA_IDCMP, CYCLEIDCMP | BUTTONIDCMP | IDCMP_CLOSEWINDOW | IDCMP_REFRESHWINDOW | IDCMP_VANILLAKEY,
 		TAG_END);
-	if (win == NULL) { printf ("ffe-prefs: OpenWindow failed\n"); goto out; }
-	printf ("ffe-prefs: window open\n"); fflush (stdout);
+	if (win == NULL) { say ("ffe-prefs: OpenWindow failed\n"); goto out; }
+	if (!from_wb) { printf ("ffe-prefs: window open\n"); fflush (stdout); }
 	GT_RefreshWindow (win, NULL);
 
 	while (!done) {
@@ -177,6 +184,7 @@ int main (int argc, char **argv)
 
 	(void)ver;
 	load ();
+	from_wb = (argc == 0);
 	if (argc <= 1) return window () ? 0 : 5;	/* argc 0 = Workbench */
 
 	for (i = 1; i < argc; i++) {
