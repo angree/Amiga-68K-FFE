@@ -15,10 +15,13 @@ Playable. Compared frame by frame against the PC reference (JJFFE) and matching 
 views, all console screens and starport services, galactic/system maps, trading, take-off,
 flight, hyperspace, docking at stations, landing on planets, saving and loading.
 
-**It is slow.** Nothing has been optimised yet: the translated code runs instruction for
-instruction what the PC executed. Measured in WinUAE without JIT at a speed comparable to a
-68040/40: **2–4 frames per second** in flight. A 68060 or a fast FPGA accelerator is what this
-version needs to be playable. Performance work is the next stage of the project.
+**It is slow.** The translated code runs instruction for instruction what the PC executed.
+Measured in WinUAE without JIT at a speed comparable to a 68040/40: **2–4 frames per second**
+in flight in 0.1.2. 0.1.3 is about 1.4× faster in the intro (measured on a fixed-speed emulated
+68020: 1.86 → 2.56 fps on average): the texture-mapping loops and a few other hot spots are
+hand-written 68k now, and on AGA only the screen rows that changed are converted to bitplanes.
+Every such change is checked to give byte-identical frames. A 68060 or a fast FPGA accelerator
+is still what the game needs to be playable.
 
 Not yet: music (the floppy release has none).
 

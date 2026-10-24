@@ -26,7 +26,7 @@
 
 #define CFG "PROGDIR:amiffe.cfg"
 
-static const char ver[] = "$VER: ffe-prefs 0.1.2 (23.10.2026)";
+static const char ver[] = "$VER: ffe-prefs 0.1.3 (24.10.2026)";
 
 /* Messages are for the Shell only: started from Workbench, libnix would open
  * a console window for the first printf. Do NOT set __stdiowin to "NIL:" to

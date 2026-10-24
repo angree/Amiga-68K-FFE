@@ -105,10 +105,18 @@ _FfeTrapCode:
 	xdef	_ffe_samp_n
 	xdef	_ffe_samp_buf
 	xdef	_ffe_samp_limit
+	xdef	_ffe_samp_prof
+	xdef	_ffe_vbl_count
 	xref	_FfeSampDump
 
 _FfeSampVec:
 	movem.l	d0/a0,-(sp)		; frame now at +8: SR.w@8, PC.l@10
+	; 2026-10-24: only VERTB counts. Level 3 is also copper and blitter;
+	; the profiler's clock (_ffe_vbl_count) must be 50 Hz of emulated time.
+	move.w	$dff01e,d0		; INTREQR
+	btst	#5,d0			; VERTB
+	beq.s	.out
+	addq.l	#1,_ffe_vbl_count
 	move.w	(8,sp),d0
 	btst	#13,d0			; interrupted in supervisor mode?
 	bne.s	.out			; yes -> never sample or hijack
@@ -116,13 +124,15 @@ _FfeSampVec:
 	beq.s	.out
 	move.l	_ffe_samp_n,d0
 	cmp.l	_ffe_samp_limit,d0	; 2026-09-25: variable (was #3000)
-	bge.s	.hijack
+	bge.s	.full
 	lea	_ffe_samp_buf,a0
 	lsl.l	#2,d0
 	move.l	(10,sp),(0,a0,d0.l)	; record interrupted PC
 	addq.l	#1,_ffe_samp_n
 	bra.s	.out
-.hijack:
+.full:
+	tst.w	_ffe_samp_prof		; profiling (2026-10-24): stop recording,
+	bne.s	.out			; never divert the game
 	tst.w	_ffe_samp_fired
 	bne.s	.out
 	move.w	#1,_ffe_samp_fired
@@ -182,4 +192,6 @@ _ffe_samp_armed:	ds.w	1
 _ffe_samp_fired:	ds.w	1
 _ffe_samp_n:	ds.l	1
 _ffe_samp_limit:	ds.l	1
-_ffe_samp_buf:	ds.l	3000
+_ffe_samp_prof:	ds.w	1
+_ffe_vbl_count:	ds.l	1
+_ffe_samp_buf:	ds.l	20000

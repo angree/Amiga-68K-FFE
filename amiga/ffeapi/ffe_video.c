@@ -38,6 +38,44 @@
 static UCHAR *g_chunky;
 static int    g_pitch;
 
+/* DIRTY ROWS (2026-10-24, performance): the c2p was ~15% of an intro frame
+ * and converted all 200 rows every frame, also the ones that had not changed
+ * (the logo panel, static text). Every writer of g_chunky marks the rows it
+ * writes; the present compares each incoming row with what is already there,
+ * and only changed rows are copied and converted. g_alldirty forces a full
+ * conversion (screen just opened). */
+static UCHAR g_rowdirty[FFE_SCREEN_H];
+static int   g_alldirty = 1;
+
+static void mark_rows (long y, long h)
+{
+	if (y < 0) { h += y; y = 0; }
+	if (y + h > FFE_SCREEN_H) h = FFE_SCREEN_H - y;
+	for (; h > 0; --h) g_rowdirty[y++] = 1;
+}
+
+/* copy one present row if it differs; 1 when it did */
+static int row_update (UCHAR *dst, const UCHAR *src, long w)
+{
+	if ((((unsigned long)dst | (unsigned long)src | (unsigned long)w) & 3) == 0
+	    && w > 0 && w <= 0x3fffc) {
+		/* CMPM.L/DBNE: the 3d_platformer engine measured this compare at
+		 * -80 % against a C loop on a 68020 (p12_rowcmp_asm.py) */
+		const UCHAR *a = src, *b = dst;
+		long n = w >> 2;
+		int same;
+		__asm__ volatile ("subq.w #1,%2\n"
+		                  "1:\tcmpm.l (%0)+,(%1)+\n\t"
+		                  "dbne %2,1b\n\t"
+		                  "seq %3"
+		                  : "+a"(a), "+a"(b), "+d"(n), "=d"(same) :: "cc", "memory");
+		if (same & 0xff) return 0;
+	} else if (memcmp (dst, src, (size_t)w) == 0)
+		return 0;
+	memcpy (dst, src, (size_t)w);
+	return 1;
+}
+
 /* The palette as amigagfx_set_palette() wants it: 8-bit r,g,b per entry. The
  * game's 6-bit values are recovered by VideoGetPalValue with >> 2, which is
  * exact for every value it can legally set (0..63 << 2 >> 2 == 0..63) and is
@@ -48,6 +86,7 @@ void ffe_video_init (void)
 {
 	g_chunky = amigagfx_chunky ();
 	g_pitch  = amigagfx_pitch ();
+	g_alldirty = 1;
 	memset (g_pal, 0, sizeof (g_pal));
 	amigagfx_set_palette (g_pal, 0, 256);
 }
@@ -1236,7 +1275,7 @@ static void fps_overlay (void)
 		if (ffe_bar_on) {
 			if (fps10 != shown) {
 				char t[48];
-				snprintf (t, sizeof t, "AmiFFE 0.1.2      %ld.%ld FPS",
+				snprintf (t, sizeof t, "AmiFFE 0.1.3      %ld.%ld FPS",
 				          fps10 / 10, fps10 % 10);
 				amigagfx_set_bar_text (t);
 				shown = fps10;
@@ -1257,6 +1296,7 @@ static void fps_overlay (void)
 		txt[n++] = 11; txt[n++] = 12; txt[n++] = 13;
 	}
 	/* background box 1 px around the text, then the glyphs */
+	mark_rows (0, 7);
 	for (r = 0; r < 7; r++) {
 		UCHAR *row = g_chunky + r * g_pitch;
 		for (c = 0; c < n * 4 + 1; c++) row[c] = bg;
@@ -1280,16 +1320,47 @@ void VideoBlit (UCHAR *pData, long x, long y, long w, long h, long jump)
 	if (g_chunky == NULL) return;
 
 	pBuf = g_chunky + x + y * g_pitch;
-	for (; h; --h, pData += jump + w, pBuf += g_pitch)
-		memcpy (pBuf, pData, (size_t)w);
-
-	if (w != FFE_SCREEN_W) return;		/* One flip per frame */
+	if (w != FFE_SCREEN_W) {
+		mark_rows (y, h);
+		for (; h; --h, pData += jump + w, pBuf += g_pitch)
+			memcpy (pBuf, pData, (size_t)w);
+		return;				/* One flip per frame */
+	}
+	{
+		long r = y;
+		for (; h; --h, ++r, pData += jump + w, pBuf += g_pitch)
+			if (row_update (pBuf, pData, w) && r >= 0 && r < FFE_SCREEN_H)
+				g_rowdirty[r] = 1;
+	}
 
 	/* Full-width blit == present. On AGA this is where the Kalms c2p runs, so
 	 * it is the single most expensive call in the layer; the game issues it
-	 * exactly once per frame. */
+	 * exactly once per frame. Only runs of changed rows are converted. */
 	fps_overlay ();
-	amigagfx_blit (0, 0, FFE_SCREEN_W, FFE_SCREEN_H);
+	{
+		/* PROGDIR:ffe_nodirty (checked once): convert every row every frame,
+		 * as 0.1.2 did -- the baseline for performance comparisons */
+		static int nodirty = -1;
+		if (nodirty < 0) {
+			FILE *f = fopen ("PROGDIR:ffe_nodirty", "r");
+			nodirty = f != NULL;
+			if (f != NULL) fclose (f);
+		}
+		if (nodirty) g_alldirty = 1;
+	}
+	if (g_alldirty) {
+		amigagfx_blit (0, 0, FFE_SCREEN_W, FFE_SCREEN_H);
+		g_alldirty = 0;
+		memset (g_rowdirty, 0, sizeof g_rowdirty);
+	} else {
+		long r0, r1;
+		for (r0 = 0; r0 < FFE_SCREEN_H; r0 = r1) {
+			if (!g_rowdirty[r0]) { r1 = r0 + 1; continue; }
+			for (r1 = r0; r1 < FFE_SCREEN_H && g_rowdirty[r1]; ++r1)
+				g_rowdirty[r1] = 0;
+			amigagfx_blit (0, r0, FFE_SCREEN_W, r1 - r0);
+		}
+	}
 
 	++g_presents;
 	{
@@ -1323,6 +1394,10 @@ void VideoBlit (UCHAR *pData, long x, long y, long w, long h, long jump)
 		extern short ffe_samp_armed_v __asm__("_ffe_samp_armed");
 		if (ffe_samp_arm_at > 0 && (long)g_presents == ffe_samp_arm_at)
 			ffe_samp_armed_v = 1;
+	}
+	{
+		extern void ffe_prof_present (void);	/* profiler (ffe_game.c) */
+		ffe_prof_present ();
 	}
 	{
 		/* FRAME1808 probe state machine (ffe_game.c) + its printer */
@@ -1544,6 +1619,7 @@ void VideoMaskedBlit (UCHAR *pData, long x, long y, long w, long h, long jump)
 
 	dJump = g_pitch - w;
 	pBuf  = g_chunky + x + y * g_pitch;
+	mark_rows (y, h);
 	for (; h; --h, pData += jump, pBuf += dJump)
 		for (cw = w; cw; --cw, ++pData, ++pBuf)
 			if (*pData) *pBuf = *pData;

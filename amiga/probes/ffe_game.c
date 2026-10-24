@@ -3807,7 +3807,65 @@ extern unsigned short ffe_crash_fmt __asm__("_ffe_crash_fmt");
 extern void FfeSampInstall (void) __asm__("_FfeSampInstall");
 extern short ffe_samp_armed __asm__("_ffe_samp_armed");
 extern long  ffe_samp_n     __asm__("_ffe_samp_n");
-extern unsigned long ffe_samp_buf[3000] __asm__("_ffe_samp_buf");
+extern unsigned long ffe_samp_buf[20000] __asm__("_ffe_samp_buf");
+
+/* PROFILER (2026-10-24, performance work). PROGDIR:ffe_prof (dev mode only)
+ * holds "START END" in seconds of EMULATED time (VBlanks/50) since the game
+ * started. Between them the VBlank sampler records the interrupted user-mode
+ * PC into memory and every present is time-stamped; at END everything is
+ * written once to PROGDIR:ffe_prof.log and the game simply continues. No I/O
+ * in between, so the measurement does not measure itself. */
+extern short ffe_samp_prof __asm__("_ffe_samp_prof");
+extern unsigned long ffe_vbl_count __asm__("_ffe_vbl_count");
+long ffe_prof_start = -1, ffe_prof_end = -1;	/* VBlanks */
+#define PROF_MAXP 8192
+static unsigned long prof_vbl[PROF_MAXP];
+static long prof_np;
+
+void ffe_prof_present (void)
+{
+	unsigned long v = ffe_vbl_count;
+	static long present_no, first_present;	/* presents since start */
+	FILE *f;
+	long i, b;
+
+	++present_no;
+	if (ffe_prof_end < 0 || (long)v < ffe_prof_start) return;
+	if (prof_np == 0) { ffe_samp_n = 0; ffe_samp_armed = 1; first_present = present_no; }
+	if (prof_np < PROF_MAXP) prof_vbl[prof_np++] = v;
+	if ((long)v < ffe_prof_end) return;
+	ffe_samp_armed = 0;
+	ffe_prof_end = -1;
+	f = fopen ("PROGDIR:ffe_prof.log", "w");
+	if (f == NULL) return;
+	{
+		extern char map_a[] __asm__("FUNC_000286");
+		extern char map_b[] __asm__("FUNC_001682");
+		extern char map_c[] __asm__("FUNC_000938");
+		fprintf (f, "MAP FUNC_000286=%lx FUNC_001682=%lx FUNC_000938=%lx\n",
+		         (unsigned long)map_a, (unsigned long)map_b, (unsigned long)map_c);
+	}
+	fprintf (f, "PROF presents=%ld vbl=%lu..%lu samples=%ld first=%ld\n", prof_np,
+	         prof_vbl[0], prof_vbl[prof_np - 1], ffe_samp_n, first_present);
+	/* with PROGDIR:ffe_fixedstep every build renders the same frame N, so the
+	 * time a fixed range of frames took is the comparable number */
+	fprintf (f, "PVBL");
+	for (i = 0; i < prof_np; i++) fprintf (f, " %lu", prof_vbl[i]);
+	fprintf (f, "\n");
+	if (prof_np > 1)
+		fprintf (f, "FPS x100 = %ld\n", (long)((prof_np - 1) * 5000UL /
+		         (prof_vbl[prof_np - 1] - prof_vbl[0])));
+	/* frames per 5 s of emulated time: the timeline of the intro */
+	for (i = 0, b = 0; b * 250 + prof_vbl[0] <= prof_vbl[prof_np - 1]; b++) {
+		long n = 0;
+		while (i < prof_np && prof_vbl[i] < prof_vbl[0] + (b + 1) * 250) { n++; i++; }
+		fprintf (f, "T %ld s: %ld frames\n", (long)((prof_vbl[0] + b * 250) / 50), n);
+	}
+	fprintf (f, "SAMPLES\n");
+	for (i = 0; i < ffe_samp_n; i++)
+		fprintf (f, "%lx\n", ffe_samp_buf[i]);
+	fclose (f);
+}
 
 void FfeSampDump (void) __asm__("_FfeSampDump");
 void FfeSampDump (void)
@@ -4143,6 +4201,23 @@ static int ffe_main (void)
 			fclose (sf);
 			ffe_samp_limit_v = 500;
 			if (ffe_samp_arm_at == 0) ffe_samp_start_flag = 1;
+		}
+	}
+	if (ffe_dev_mode ()) {
+		/* PROFILER: PROGDIR:ffe_prof = "START END" seconds (see ffe_prof_present) */
+		FILE *pf = fopen ("PROGDIR:ffe_prof", "r");
+		long s0, s1;
+		if (pf != NULL) {
+			if (fscanf (pf, "%ld %ld", &s0, &s1) == 2 && s1 > s0) {
+				extern long ffe_prof_start, ffe_prof_end;
+				extern long ffe_samp_limit_q __asm__("_ffe_samp_limit");
+				extern short ffe_samp_prof_q __asm__("_ffe_samp_prof");
+				ffe_prof_start = s0 * 50;
+				ffe_prof_end = s1 * 50;
+				ffe_samp_limit_q = 20000;
+				ffe_samp_prof_q = 1;
+			}
+			fclose (pf);
 		}
 	}
 

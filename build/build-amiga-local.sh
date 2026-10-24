@@ -30,6 +30,8 @@ t0=$(date +%s)
 # incremental `-nt' check in build-amiga.sh needs.
 # no JJFFE accept screen (developer, 2026-10-16): patch the emitted _asmmain
 python3 "$SRC/tools/translator/patch_nosplash.py" || exit 1
+# hand-scheduled hot loops (2026-10-24, tools/perf); FFE_NO_SPEED=1 restores the emitted code
+python3 "$SRC/tools/perf/patch_speed.py" || exit 1
 mkdir -p "$LOC/amiga" "$LOC/build/xlat-full" "$LOC/build/data-be"
 rsync -rc --delete "$SRC/amiga/" "$LOC/amiga/"
 rsync -rc --delete "$SRC/build/xlat-full/" "$LOC/build/xlat-full/"
