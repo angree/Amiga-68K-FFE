@@ -69,7 +69,7 @@ int sprintf (char *buf, const char *fmt, ...)
 		 * names the game builds */
 		static int logged;
 		if (logged < 40 && !(fmt[0] == '%' && fmt[1] == '0')) {	/* not the per-frame clock */
-			FILE *lf = ffe_logopen ("PROGDIR:ffe_sprintf.log", logged ? "a" : "w");
+			FILE *lf = ffe_logopen (ffe_pd ("ffe_sprintf.log"), logged ? "a" : "w");
 			logged++;
 			if (lf != NULL) { fprintf (lf, "[%s] <- [%s]%c", buf, fmt, 10); fclose (lf); }
 		}

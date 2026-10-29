@@ -33,6 +33,12 @@ extern "C" {
  * every other call below is safe but a no-op / failure in that state). */
 int AmigaAudio_Open(void);
 
+/* AmiFFE 2026-10-29: 1 = the next Open uses ahi.device (unit 0, its device
+ * interface) instead of audio.device. Everything below works the same on
+ * both. IsAHI: 1 while ahi.device is the open backend. */
+void AmigaAudio_SetBackend(int ahi);
+int  AmigaAudio_IsAHI(void);
+
 /* Abort any playing sound, free the channels, close the device.
  * Safe to call at any time, including after a failed/absent Open. */
 void AmigaAudio_Close(void);
@@ -46,6 +52,10 @@ void AmigaAudio_FreeSample(void *p);
  * WaitIO) as a side effect; never blocks. 0 while still playing. */
 int AmigaAudio_ChannelIdle(int ch);
 
+/* Abort whatever channel ch plays, at once (FFE). 0 if the channel is held
+ * by music or audio is down. */
+int AmigaAudio_Stop(int ch);
+
 /* Start playing on channel ch: 8-bit signed samples in Chip RAM (from
  * AllocSample), even byte count (max 131070 - the Paula length register),
  * Paula period (>= 124 on PAL, i.e. <= ~28.6 kHz), hardware volume 0..64.
@@ -53,18 +63,6 @@ int AmigaAudio_ChannelIdle(int ch);
  * 0 if not open / channel busy / bad arguments. */
 int AmigaAudio_Play(int ch, void *chipdata, unsigned long bytes,
                     int period, int volume);
-
-/* Silence channel ch NOW and hand it back, instead of waiting for the current
- * sample to finish. Returns 1 when the channel is free afterwards (including
- * when it already was), 0 if audio is not open, ch is out of range, or the
- * channel is one of the two held by streaming music.
- *
- * Added for the FFE sound layer, which has more logical voices than Paula has
- * channels and must be able to take one back: without this an explosion could
- * wait up to half a second for a channel, "stop all sounds" left a looping
- * wind sample audible for seconds, and retuning the engine note only took
- * effect at the next re-arm. Never blocks. */
-int AmigaAudio_Stop(int ch);
 
 /* ---- streaming music on Paula channels 2 (right) + 3 (left) -------------
  *
@@ -107,6 +105,13 @@ int  AmigaAudio_MusicActive(void);
 /* 1 once the stream has drained AND both channels have played the last
  * buffer out (so the caller can loop or advance to the next track). */
 int  AmigaAudio_MusicFinished(void);
+
+/* Ami MoM 0.4.4: osobny proces dolewajacy muzyke (priorytet = gra + pri).
+ * 1 = dziala. Stop czeka na koniec procesu; AmigaAudio_Close wola go sam. */
+int  AmigaAudio_MusicThreadStart(int pri_wzgledem_gry);
+void AmigaAudio_MusicThreadStop(void);
+unsigned long AmigaAudio_MusicUnderruns(void);   /* ile razy kolejka muzyki byla pusta */
+int  AmigaAudio_MusicThreadRunning(void);          /* 1 = muzyke dolewa osobny proces (0.7.5) */
 
 #ifdef __cplusplus
 }

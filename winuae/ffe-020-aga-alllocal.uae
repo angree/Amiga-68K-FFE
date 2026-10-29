@@ -29,7 +29,7 @@ cpu_speed=max
 ; Calibrated: WinUAE writes this slider in TENTHS of a percent.
 ; -700.0 = -70% = SysInfo 1.77 vs A4000/040/25, i.e. a 68040/40.
 ; Use otd-aga-max.uae only when raw speed matters more than realism.
-cpu_throttle=-800.0
+cpu_throttle=-700.0
 cachesize=16384
 ; --- Chipset: A4000 AGA ---
 chipset=aga

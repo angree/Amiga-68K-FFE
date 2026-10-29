@@ -179,7 +179,7 @@ int main(void)
 	ULONG t_full, t_vp;
 	ULONG hold_start;
 
-	g_log = fopen("PROGDIR:ffe_agatest.log", "w");
+	g_log = fopen(ffe_pd ("ffe_agatest.log"), "w");
 	logf_("FFE AGA lores probe -- 320x200x8 chunky, Kalms c2p_rect");
 
 	if (!timer_open())

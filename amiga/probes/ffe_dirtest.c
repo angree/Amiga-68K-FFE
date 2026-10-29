@@ -37,9 +37,9 @@
 
 #include "ffeapi/ffeapi.h"
 
-#define TMPDIR  "PROGDIR:ffe_dirtest.tmp"
-#define SUBDIR  "PROGDIR:ffe_dirtest.tmp/sub"
-#define CFGFILE "PROGDIR:ffe_dirtest.cfg"
+#define TMPDIR  ffe_pd ("ffe_dirtest.tmp")
+#define SUBDIR  ffe_pd ("ffe_dirtest.tmp/sub")
+#define CFGFILE ffe_pd ("ffe_dirtest.cfg")
 
 #define ALPHA_SIZE 10
 #define BETA_SIZE  20
@@ -154,7 +154,7 @@ static void test_cfg (void)
 	/* Safe on a struct CfgOpen has failed on: that is the documented contract
 	 * of CfgGetKeyValDef and the reason the game can call the four Cfg
 	 * functions blind in FUNC_001416_TimerInit. */
-	rv = CfgOpen (&cfg, (char *)"PROGDIR:no_such_file.cfg");
+	rv = CfgOpen (&cfg, (char *)ffe_pd ("no_such_file.cfg"));
 	check (rv == 0, "CfgOpen on a missing file returns 0 (got %d)", rv);
 	check (CfgFindSection (&cfg, (char *)"DIR") == 0, "CfgFindSection after a failed open returns 0");
 	v = 123;
@@ -494,7 +494,7 @@ static void test_blit (void)
 
 int main (void)
 {
-	g_log = fopen ("PROGDIR:ffe_dirtest.log", "w");
+	g_log = fopen (ffe_pd ("ffe_dirtest.log"), "w");
 	logf_ ("FFE platform layer probe -- config file, directories, blit clipping");
 	logf_ ("no screen is opened and no game code is present");
 

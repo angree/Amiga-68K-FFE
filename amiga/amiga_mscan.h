@@ -14,7 +14,7 @@ extern "C" {
 #endif
 
 /* Scan one full AmigaDOS directory path (for example
- * "PROGDIR:music/Nowe").  Only regular, non-dot *.wav entries are returned.
+ * ffe_pd ("music/Nowe")).  Only regular, non-dot *.wav entries are returned.
  * The suffix comparison is ASCII case-insensitive.  paths[] receives the
  * complete path and names[] the filename without its final .wav suffix.
  *

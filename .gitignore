@@ -1,15 +1,46 @@
 __pycache__/
 *.pyc
-# build outputs, generated locally from the JJFFE disassembly
+# build outputs -- regenerable from sources by build scripts
 build/amiga-out/
-build/xlat*/
+build/oracle/
+build/xlat/
+build/xlat-full/
 build/data-be/
 build/datamap/
-build/oracle/
-# not distributable: CyberGraphX headers, ROMs, boot images, game files
-amiga/cgx-include/
-*.rom
-*.ROM
-*.hdf
-ref/
-winuae/work/
+build/pc-ref/
+build/m0-pc-dump/
+build/m0-pc/run/ffesdl-dump.exe
+# emulator runtime state (boot images are backed up as *.spare copies)
+winuae/work/*.log
+winuae/work/ffe_frame.raw
+winuae/work/ffe_frame.png
+winuae/work/boot_marker
+winuae/work/after_marker
+winuae/work/game_stdout
+winuae/work/ffe_autokey
+tools/winuae281/
+*.avi
+# third-party toolchains -- gigabytes, reinstallable
+tools/mingw32/
+tools/nasm/
+tools/nasm*/
+tools/vasm*/
+tools/SDL-1.2.15/
+tools/_dl/
+# harness-generated boot script -- LF-only, rewritten every run; keeping it
+# out of git prevents any CRLF conversion from resurrecting the CR bug
+winuae/work/run
+winuae/work/boot_marker
+build/pcprobe/
+build/m0-pc-probe/
+build/m0-pc/run/ffesdl-probe.exe
+build/m0-pc/run/pc_proj.tmp
+
+# codex worker -- runtime artefacts. last_run.jsonl reaches hundreds of kB per
+# run and carries the whole conversation with Codex; nothing to version.
+_codex_worker/last_message.txt
+_codex_worker/last_run.jsonl
+_codex_worker/usage_cache.json
+
+# generated symbol dump for address resolution
+build/ffe_game.sym

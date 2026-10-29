@@ -32,17 +32,18 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "ffeapi.h"
 #include "amiga_gfx.h"
 
-#define FFE_BAR_TITLE "AmiFFE 0.1.3"
+#define FFE_BAR_TITLE "AmiFFE 0.2.0"
 
 /* Version string for the Version command, and the credits in plain text in
  * the binary. Frontier: First Encounters (c) Frontier Developments; this port
  * is an unofficial fan project based on John Jordan's JJFFE. */
 const char ffe_version_tag[] =
-	"$VER: AmiFFE 0.1.3 (24.10.2026) Frontier: First Encounters "
+	"$VER: AmiFFE 0.2.0 (30.10.2026) Frontier: First Encounters "
 	"(c) Frontier Developments - Amiga port based on JJFFE by John Jordan";
 
 static int g_ready;
@@ -61,8 +62,56 @@ extern void ffe_find_data_dir (void);
  *   video=0|1|2  0 as the machine boots, 1 PAL, 2 NTSC (chipset screen only)
  * A missing file, an unknown key or an out-of-range value keeps the default.
  * RTG falls back to AGA on its own when no 8-bit mode is available. */
-#define FFE_PREFS_FILE "PROGDIR:amiffe.cfg"
+#define FFE_PREFS_FILE ffe_pd ("amiffe.cfg")
 static int g_pref_gfx, g_pref_video;
+/*   tex=0|1|2    0 textures as the original, 1 distant (minified) textured
+ *                polygons drawn flat, 2 every opaque textured polygon flat
+ *                (2026-10-24, for slower machines; read by the texture span
+ *                code that tools/perf/patch_speed.py emits, and by
+ *                ffe_tex_flat_index below) */
+short ffe_tex_mode;
+/*   planetlod=0|1  0 planets as the original, 1 reduced: patches smaller
+ *                  than ~75 px on screen stop subdividing early (the splitter
+ *                  threshold below; tools/perf/patch_speed.py) */
+long ffe_planet_lod = 0;	/* default: reduced (developer, 2026-10-24) */
+/*   sound=0|1    0 off (the game runs silent), 1 Paula (audio.device)
+ *   music=0..5   0 off, 1 AdLib pre-rendered, 2 General MIDI pre-rendered
+ *                (PROGDIR:Music/AdLib|GM/<song>.wav, written by ffe-music),
+ *                3 AdLib live, 4 General MIDI live (synthesised while the
+ *                game runs: fast machines only), 5 external MIDI (camd)
+ *   musicrate=11025|22050   for the live modes
+ * Read by ffe_sound.c / ffe_music.c (2026-10-24). */
+short ffe_sound_mode = 1, ffe_music_mode = 1;
+long  ffe_music_rate = 11025;
+
+/* The texel index that stands for a whole 64x64 texture when it is drawn flat
+ * (tex=1/2): its most frequent non-zero index, which the caller then passes
+ * through the quad's own colour table, so the polygon keeps its lighting.
+ * A TRANSPARENT texture (trans != 0) with more than 1/16 of its texels in
+ * colour 0 has holes that shape the object: -1 = keep it textured.
+ * Textures can be regenerated in place (planets), so a cached result is only
+ * reused when 16 sample bytes still match. Called once per span; the cache
+ * makes repeated spans of one polygon cost a lookup. */
+long ffe_tex_flat_index (const unsigned char *tex, long trans)
+{
+	static struct { const unsigned char *p; long trans, res; unsigned char probe[16]; } c[32];
+	unsigned long h = ((unsigned long)tex >> 6) & 31;
+	unsigned short n[256];
+	long i, best = -1, bestn = 0;
+
+	if (c[h].p == tex && c[h].trans == trans) {
+		for (i = 0; i < 16; i++) if (c[h].probe[i] != tex[i * 256 + 37]) break;
+		if (i == 16) return c[h].res;
+	}
+	memset (n, 0, sizeof n);
+	for (i = 0; i < 4096; i++) n[tex[i]]++;
+	for (i = 1; i < 256; i++) if (n[i] > bestn) { bestn = n[i]; best = i; }
+	if (best < 0 || (trans && n[0] > 4096 / 16)) best = -1;
+	else if (!trans && n[0] > bestn) best = 0;	/* opaque: 0 is an ordinary colour */
+	c[h].p = tex; c[h].trans = trans; c[h].res = best;
+	for (i = 0; i < 16; i++) c[h].probe[i] = tex[i * 256 + 37];
+	return best;
+}
 
 static void ffe_read_prefs (void)
 {
@@ -74,9 +123,14 @@ static void ffe_read_prefs (void)
 	while (fgets (line, sizeof line, f) != NULL) {
 		if (sscanf (line, "gfx=%d", &v) == 1) { if (v >= 0 && v <= 2) g_pref_gfx = v; }
 		else if (sscanf (line, "video=%d", &v) == 1) { if (v >= 0 && v <= 2) g_pref_video = v; }
+		else if (sscanf (line, "tex=%d", &v) == 1) { if (v >= 0 && v <= 2) ffe_tex_mode = (short)v; }
+		else if (sscanf (line, "planetlod=%d", &v) == 1) ffe_planet_lod = v ? 0 : 8;
+		else if (sscanf (line, "sound=%d", &v) == 1) { if (v >= 0 && v <= 2) ffe_sound_mode = (short)v; }
+		else if (sscanf (line, "music=%d", &v) == 1) { if (v >= 0 && v <= 5) ffe_music_mode = (short)v; }
+		else if (sscanf (line, "musicrate=%d", &v) == 1) { if (v == 11025 || v == 22050) ffe_music_rate = v; }
 	}
 	fclose (f);
-	fprintf (stdout, "ffe: prefs gfx=%d video=%d\n", g_pref_gfx, g_pref_video);
+	fprintf (stdout, "ffe: prefs gfx=%d video=%d tex=%d\n", g_pref_gfx, g_pref_video, ffe_tex_mode);
 	fflush (stdout);
 }
 
@@ -101,7 +155,7 @@ void SystemInit (void)
 	ffe_read_prefs ();
 	amigagfx_set_video_mode (g_pref_video);
 	{
-		FILE *nb = fopen ("PROGDIR:ffe_nobar", "r");
+		FILE *nb = fopen (ffe_pd ("ffe_nobar"), "r");
 		int bar = nb == NULL;
 		int h = FFE_SCREEN_H + (bar ? 11 : 0);
 		int be = g_pref_gfx == 2 ? AMIGAGFX_BACKEND_RTG : AMIGAGFX_BACKEND_AGA;

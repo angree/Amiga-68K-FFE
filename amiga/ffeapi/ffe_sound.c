@@ -130,6 +130,16 @@
 
 #include "ffeapi.h"
 #include "amiga_audio.h"
+#include "amiga_gfx.h"
+
+/* ffe_music.c */
+void ffe_music_init (void);
+void ffe_music_cleanup (void);
+void ffe_music_service (void);
+int  ffe_music_available (void);
+void ffe_music_play (long index);
+void ffe_music_stop (void);
+long ffe_music_done (void);
 
 /* ---- constants ---------------------------------------------------------- */
 
@@ -483,6 +493,7 @@ void ffe_sound_service (void)
 	int ch;
 
 	if (!g_inited) return;
+	ffe_music_service ();
 
 	for (ch = 0; ch < AMIGA_AUDIO_CHANNELS; ch++) {
 		snd_chan *c = &g_chan[ch];
@@ -524,6 +535,15 @@ void ffe_sound_init (void)
 	for (i = 0; i < SND_NUM_SAMPLES; i++) {
 		g_data[i] = NULL; g_len[i] = 0; g_filebytes[i] = 0; g_owned[i] = 0;
 	}
+	{
+		/* PROGDIR:amiffe.cfg sound=0 (2026-10-24): no audio.device at all */
+		extern short ffe_sound_mode;
+		if (ffe_sound_mode == 0) {
+			fprintf (stdout, "ffe: sound off (sound=0)\n");
+			fflush (stdout);
+			return;
+		}
+	}
 	for (i = 0; i < AMIGA_AUDIO_CHANNELS; i++) snd_clear_chan (i);
 	for (i = 0; i < SND_NUM_VOICES; i++) g_voice_chan[i] = -1;
 	g_chipbytes = 0;
@@ -533,10 +553,32 @@ void ffe_sound_init (void)
 	/* All four channels at once, ADIOF_NOWAIT. If anything else holds Paula we
 	 * stay down and every entry point below is a no-op -- the game runs silent
 	 * rather than not at all. */
-	if (!AmigaAudio_Open ()) {
-		fprintf (stdout, "ffe: audio.device would not give up Paula - running silent\n");
+	/* sound=2 is AHI (2026-10-29). On MorphOS sound=1 means AHI as well: its
+	 * audio.device emulation hung the game in WaitIO on the splash (QEMU
+	 * pegasos2), and AHI is its native sound system. AHI missing on a
+	 * classic machine: fall back to Paula; on MorphOS: run silent. */
+	{
+		extern short ffe_sound_mode;
+		int morphos = amigagfx_is_morphos ();
+		int ahi = ffe_sound_mode == 2 || morphos;
+		int ok;
+
+		AmigaAudio_SetBackend (ahi);
+		ok = AmigaAudio_Open ();
+		if (!ok && ahi && !morphos) {
+			fprintf (stdout, "ffe: ahi.device would not open - trying Paula\n");
+			AmigaAudio_SetBackend (0);
+			ok = AmigaAudio_Open ();
+		}
+		if (!ok) {
+			fprintf (stdout, "ffe: %s would not open - running silent\n",
+			         ahi && morphos ? "ahi.device" : "audio.device");
+			fflush (stdout);
+			return;
+		}
+		fprintf (stdout, "ffe: sound through %s\n",
+		         AmigaAudio_IsAHI () ? "ahi.device" : "audio.device (Paula)");
 		fflush (stdout);
-		return;
 	}
 
 	for (i = 0; i < SND_NUM_SAMPLES; i++) {
@@ -560,6 +602,7 @@ void ffe_sound_init (void)
 	}
 
 	g_inited = 1;
+	ffe_music_init ();
 }
 
 void ffe_sound_cleanup (void)
@@ -567,6 +610,7 @@ void ffe_sound_cleanup (void)
 	int i;
 
 	SoundStopAllSamples ();
+	ffe_music_cleanup ();
 
 	/* Close BEFORE freeing: AmigaAudio_Close aborts every outstanding write,
 	 * and Paula must not still be reading a buffer we hand back. */
@@ -588,7 +632,9 @@ void SoundCheckInit (long *pAll, long *pDigi, long *pMidi)
 {
 	if (pAll  != NULL) *pAll  = g_inited;
 	if (pDigi != NULL) *pDigi = g_inited;
-	if (pMidi != NULL) *pMidi = 0;		/* no MIDI on Paula, and none wanted */
+	/* "MIDI" is what makes the game ask for songs at all: reported when a
+	 * music mode is set and its files are there (ffe_music.c) */
+	if (pMidi != NULL) *pMidi = g_inited && ffe_music_available ();
 }
 
 void SoundPlaySample (long index, long vol, long pitch)
@@ -636,7 +682,7 @@ void SoundPlaySample (long index, long vol, long pitch)
 	/* Rule (a): ambience never takes the last channels off the one-shots. Over
 	 * the cap the request is simply dropped -- the game re-issues engine and
 	 * wind every frame, so its own polling is the retry. */
-	if (d->prio <= SND_P_ENGINE && snd_sustained () >= SND_MAX_SUSTAINED) return;
+	if (d->prio <= SND_P_ENGINE && snd_sustained () >= (AmigaAudio_MusicActive () ? 1 : SND_MAX_SUSTAINED)) return;
 
 	ch = snd_pick ();
 	if (ch < 0) ch = snd_steal (d->prio);	/* rule (b), and it happens now */
@@ -661,30 +707,23 @@ void SoundStopAllSamples (void)
 
 /* ---- the API the game calls: music -------------------------------------- */
 
-/* Stubs, exactly as in ref/jjffe/sdl/sdlsound.cpp -- the SDL build has no music
- * either, and the seventeen qq*.raw tracks are not part of the floppy release.
- *
- * Where a Paula implementation attaches: amiga_audio.h already carries a
- * complete streamer (AmigaAudio_MusicStart / MusicService / MusicStop /
- * MusicFinished) that ping-pongs two Chip buffers across channels 2 and 3, so
- * SoundPlaySong becomes "open the track, MusicStart with a refill callback",
- * SoundSongDone becomes AmigaAudio_MusicFinished, and ffe_sound_service gains
- * one AmigaAudio_MusicService call. snd_usable() above already yields channels
- * 2 and 3 to the streamer, and SND_MAX_SUSTAINED should drop to 1 at the same
- * time, since the SFX pool halves. */
+/* The music lives in ffe_music.c (2026-10-24). The floppy release DOES have
+ * it -- 17 HMI songs in MUSIC/<song>.HMP plus the AdLib banks; an earlier comment
+ * here said otherwise and was wrong. The SDL layer of JJFFE stubs all three. */
 
 void SoundPlaySong (long index)
 {
-	(void)index;
+	if (g_inited) ffe_music_play (index);
 }
 
 void SoundStopSong (void)
 {
+	if (g_inited) ffe_music_stop ();
 }
 
 long SoundSongDone (void)
 {
-	return 0;
+	return g_inited ? ffe_music_done () : 1;
 }
 
 /* ---- the API the game calls: speech streaming --------------------------- */

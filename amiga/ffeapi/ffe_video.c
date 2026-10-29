@@ -132,7 +132,7 @@ static void dump_clock (void)
 	 * dump in its own file means a poisoned ffe_game.log costs the harness
 	 * nothing and costs the measurement nothing. Still: read neither while
 	 * the emulator runs. */
-	FILE *f = ffe_logopen ("PROGDIR:ffe_dump.log", "a");
+	FILE *f = ffe_logopen (ffe_pd ("ffe_dump.log"), "a");
 
 	if (f == NULL) return;
 	{
@@ -1182,7 +1182,7 @@ int ffe_is_quiet (void)
 		/* QUIET BY DEFAULT: the measured freezes went away with the logs
 		 * off (4/4 runs clean vs 4/4 stalled), so a normal run must not
 		 * write them. PROGDIR:ffe_verbose turns them back on for probing. */
-		FILE *q = fopen ("PROGDIR:ffe_verbose", "r");
+		FILE *q = fopen (ffe_pd ("ffe_verbose"), "r");
 		ffe_quiet = (q == NULL);
 		if (q) fclose (q);
 	}
@@ -1195,7 +1195,7 @@ void ffe_dbg_trace (const char *tag)
 	FILE *f;
 
 	if (n >= 20000 || ffe_is_quiet ()) return;
-	f = ffe_logopen ("PROGDIR:ffe_trace.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_trace.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "%d %s %lu\n", n, tag, (unsigned long)TimerGetTimeStamp ());
 	fclose (f);
@@ -1204,7 +1204,7 @@ void ffe_dbg_trace (const char *tag)
 
 static void dump_frame (void)
 {
-	FILE *f = ffe_logopen ("PROGDIR:ffe_frame.raw", "wb");
+	FILE *f = ffe_logopen (ffe_pd ("ffe_frame.raw"), "wb");
 	UCHAR pal[3];
 	int i;
 
@@ -1246,7 +1246,7 @@ static void fps_overlay (void)
 	unsigned long now;
 
 	if (state < 0) {
-		FILE *f = fopen ("PROGDIR:ffe_nofps", "r");
+		FILE *f = fopen (ffe_pd ("ffe_nofps"), "r");
 		state = f == NULL;
 		if (f != NULL) fclose (f);
 		t0 = amigagfx_millis ();
@@ -1275,7 +1275,7 @@ static void fps_overlay (void)
 		if (ffe_bar_on) {
 			if (fps10 != shown) {
 				char t[48];
-				snprintf (t, sizeof t, "AmiFFE 0.1.3      %ld.%ld FPS",
+				snprintf (t, sizeof t, "AmiFFE 0.2.0      %ld.%ld FPS",
 				          fps10 / 10, fps10 % 10);
 				amigagfx_set_bar_text (t);
 				shown = fps10;
@@ -1342,7 +1342,7 @@ void VideoBlit (UCHAR *pData, long x, long y, long w, long h, long jump)
 		 * as 0.1.2 did -- the baseline for performance comparisons */
 		static int nodirty = -1;
 		if (nodirty < 0) {
-			FILE *f = fopen ("PROGDIR:ffe_nodirty", "r");
+			FILE *f = fopen (ffe_pd ("ffe_nodirty"), "r");
 			nodirty = f != NULL;
 			if (f != NULL) fclose (f);
 		}
@@ -1382,7 +1382,7 @@ void VideoBlit (UCHAR *pData, long x, long y, long w, long h, long jump)
 		/* WATCHDOG POSITIVE CONTROL (2026-09-25): with PROGDIR:ffe_stall
 		 * present, block here forever the way the intermittent freeze does,
 		 * so ffe_watchdog.c must produce its log. */
-		FILE *st = fopen ("PROGDIR:ffe_stall", "r");
+		FILE *st = fopen (ffe_pd ("ffe_stall"), "r");
 		if (st != NULL) {
 			extern unsigned long ffe_wait_forever (void);
 			fclose (st);
@@ -1408,7 +1408,7 @@ void VideoBlit (UCHAR *pData, long x, long y, long w, long h, long jump)
 
 		ffe_frame1808_present (game_clock[0]);
 		if (ffe_f8_state == 3 && !f8_printed) {
-			FILE *pf = ffe_logopen ("PROGDIR:ffe_frame1808.log", "w");
+			FILE *pf = ffe_logopen (ffe_pd ("ffe_frame1808.log"), "w");
 			int q;
 
 			f8_printed = 1;
@@ -1441,7 +1441,7 @@ void VideoBlit (UCHAR *pData, long x, long y, long w, long h, long jump)
 				/* ITEMLOG (2026-09-26), twin of pc_items.log */
 				extern short ffe_it[][11];
 				extern long ffe_it_n;
-				FILE *itf = ffe_logopen ("PROGDIR:ffe_items.log", "w");
+				FILE *itf = ffe_logopen (ffe_pd ("ffe_items.log"), "w");
 				if (itf != NULL) {
 					long r;
 					int k;
@@ -1462,7 +1462,7 @@ void VideoBlit (UCHAR *pData, long x, long y, long w, long h, long jump)
 				FILE *vf;
 
 				ffe_frame1478_flush ();
-				vf = ffe_logopen ("PROGDIR:ffe_frame1478.log", "w");
+				vf = ffe_logopen (ffe_pd ("ffe_frame1478.log"), "w");
 				if (vf != NULL) {
 					int r;
 					for (r = 0; r < ffe_v8_n; r++)
@@ -1481,7 +1481,7 @@ void VideoBlit (UCHAR *pData, long x, long y, long w, long h, long jump)
 			{
 				extern short ffe_fh[][15];
 				extern long ffe_fh_n;
-				FILE *hf = ffe_logopen ("PROGDIR:ffe_framehalo.log", "w");
+				FILE *hf = ffe_logopen (ffe_pd ("ffe_framehalo.log"), "w");
 
 				if (hf != NULL) {
 					int r, k;
@@ -1496,7 +1496,7 @@ void VideoBlit (UCHAR *pData, long x, long y, long w, long h, long jump)
 			{
 				extern long ffe_c7[][13], ffe_c7_n;
 				extern unsigned long ffe_c7_dest[];
-				FILE *cf = ffe_logopen ("PROGDIR:ffe_clip1837.log", "w");
+				FILE *cf = ffe_logopen (ffe_pd ("ffe_clip1837.log"), "w");
 
 				if (cf != NULL) {
 					for (q = 0; q < ffe_c7_n; q++) {
@@ -1534,7 +1534,7 @@ void VideoBlit (UCHAR *pData, long x, long y, long w, long h, long jump)
 		static long seq = -1;
 
 		if (seq < 0) {
-			FILE *s = fopen ("PROGDIR:ffe_seq", "r");
+			FILE *s = fopen (ffe_pd ("ffe_seq"), "r");
 
 			seq = 0;
 			if (s != NULL) {
@@ -1548,7 +1548,7 @@ void VideoBlit (UCHAR *pData, long x, long y, long w, long h, long jump)
 		static long win_read; static unsigned long win_lo, win_hi;
 		int in_win;
 		if (!win_read) {
-			FILE *w = fopen ("PROGDIR:ffe_seqwin", "r");
+			FILE *w = fopen (ffe_pd ("ffe_seqwin"), "r");
 			win_read = 1;
 			if (w != NULL) { if (fscanf (w, "%lu %lu", &win_lo, &win_hi) != 2) win_lo = win_hi = 0; fclose (w); }
 		}
@@ -1559,7 +1559,7 @@ void VideoBlit (UCHAR *pData, long x, long y, long w, long h, long jump)
 			UCHAR pal[3];
 			int i;
 
-			snprintf (name, sizeof name, "PROGDIR:seq/f%05lu.raw", g_presents);
+			snprintf (name, sizeof name, ffe_pd ("seq/f%05lu.raw"), g_presents);
 			f = fopen (name, "wb");
 			if (f != NULL) {
 				fwrite ("FFEFRM01", 1, 8, f);
@@ -1571,7 +1571,7 @@ void VideoBlit (UCHAR *pData, long x, long y, long w, long h, long jump)
 				fclose (f);
 			}
 			/* frame -> game clock index (twin of the PC probe's) */
-			f = fopen ("PROGDIR:seq/index.txt", "a");
+			f = fopen (ffe_pd ("seq/index.txt"), "a");
 			if (f != NULL) {
 				fprintf (f, "f%05lu %ld\n", g_presents, game_clock[0]);
 				fclose (f);
@@ -1595,7 +1595,7 @@ void VideoBlit (UCHAR *pData, long x, long y, long w, long h, long jump)
 			 * autokey_run.ps1 reads these ACTION lines to confirm a key
 			 * registered, and ffe_game.log's directory entry on the I:
 			 * share is no longer reliably readable from the host. */
-			FILE *f = ffe_logopen ("PROGDIR:ffe_dump.log", "a");
+			FILE *f = ffe_logopen (ffe_pd ("ffe_dump.log"), "a");
 
 			if (f != NULL) {
 				fprintf (f, "ACTION %02x -> %02x at present %lu ts=%lu "

@@ -313,7 +313,7 @@ static int g_last_dump = -1;
  * that function too. */
 static void dump_frame (int frame)
 {
-	FILE *f = fopen ("PROGDIR:ffe_frame.raw", "wb");
+	FILE *f = fopen (ffe_pd ("ffe_frame.raw"), "wb");
 	UCHAR pal[3];
 	int i;
 
@@ -347,7 +347,7 @@ int main (void)
 
 	memset (seen, 0, sizeof (seen));
 
-	g_log = fopen ("PROGDIR:ffe_apitest.log", "w");
+	g_log = fopen (ffe_pd ("ffe_apitest.log"), "w");
 	logf_ ("FFE platform layer probe -- video / input / timer, no game code");
 
 	SystemInit ();
@@ -418,7 +418,7 @@ int main (void)
 
 	dump_frame (frame);          /* final state, whatever it is */
 	logf_ ("---- summary ----");
-	logf_ ("framebuffer dumped to PROGDIR:ffe_frame.raw at frame %d", g_last_dump);
+	logf_ ("framebuffer dumped to ffe_frame.raw at frame %d", g_last_dump);
 	logf_ ("ended after %d frames: %s", frame, why);
 	logf_ ("wall %lu ms, %lu ms/frame -> %lu fps",
 	       t_end - t_start,

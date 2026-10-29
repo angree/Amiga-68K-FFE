@@ -23,7 +23,15 @@ hand-written 68k now, and on AGA only the screen rows that changed are converted
 Every such change is checked to give byte-identical frames. A 68060 or a fast FPGA accelerator
 is still what the game needs to be playable.
 
-Not yet: music (the floppy release has none).
+0.2.0 adds two options for slower machines (see Settings). **Planets: Reduced**, the default,
+stops subdividing small, distant planet patches early: a scene with a small, distant Earth went
+from 220 to 153 ms per frame. **Textures: distant flat / all flat** draws textured polygons in
+one colour taken from their texture, as the original engine did for far-away objects.
+
+**Music** (new in 0.2.0). The game's own soundtrack, played from its original song files in
+one of four ways: AdLib or General MIDI, pre-rendered once to files on disk (cheap to play,
+any machine) or synthesised live while you play (fast machines only). Sound and music go through
+Paula (`audio.device`) or **AHI**.
 
 ## Requirements
 
@@ -39,13 +47,19 @@ One executable for every 68k system. Tested in WinUAE with the same binary:
 | AmigaOS 3.1 (Kickstart 3.1 + Workbench 3.1) | yes | yes (Picasso96) |
 | AROS 68k, current nightly ROM and system | yes | yes |
 | Older AROS ROM (e.g. WinUAE's built-in one) with a Workbench boot disk | yes | no RTG on that ROM |
+| MorphOS 3.20 (tested in QEMU, Pegasos II) | no chipset | yes (16/24/32-bit screen) |
+
+On **MorphOS** the same 68k executable runs through MorphOS's built-in 68k emulation. The game
+finds MorphOS by itself: it opens a 16/24/32-bit RTG screen and plays sound through AHI, whatever
+`ffe-prefs` says. MorphOS was tested in an emulator only, not yet on real hardware.
 
 AROS for x86, x86-64 or ARM cannot run 68k programs and is not supported.
 
 ## Installation
 
 1. Unpack the archive where you keep games, e.g. `Games:`. It holds the `AmiFFE` drawer (with
-   its icon): `ffe_game`, `ffe-prefs`, this README and Workbench icons for all of them.
+   its icon): `ffe_game`, `ffe-prefs`, `ffe-music` (the music renderer), `ffe_gm.bnk` (the
+   General MIDI sample bank), this README and Workbench icons.
 2. Copy your **whole original DOS game folder, as it is**, into a new folder called `FFE`
    inside the `AmiFFE` drawer. Do not pick or rename files — copy everything:
 
@@ -82,19 +96,33 @@ your own installation:
 
 Saved games go to `AmiFFE/FFE/COMMANDR/`. Amiga and PC save files are not interchangeable.
 
-## Display settings
+## Settings
 
-Run `ffe-prefs` (double-click its icon) before the game to choose the display. It opens a small window; from the Shell,
-`ffe-prefs GFX=RTG VIDEO=PAL` saves without one and `ffe-prefs SHOW` prints the settings.
+Run `ffe-prefs` (double-click its icon) before the game. It opens a small window; from the
+Shell, `ffe-prefs GFX=RTG VIDEO=PAL SOUND=AHI` saves without one and `ffe-prefs SHOW` prints
+the settings.
 
 - **Display:** Auto (= AGA), AGA, or RTG (an 8-bit Picasso96/CyberGraphX screen, no
   chunky-to-planar, faster). If no RTG mode is available, the game falls back to AGA.
 - **Video** (AGA only): as the machine boots, PAL (50 Hz) or NTSC (60 Hz). Forcing the other
   standard needs its monitor driver in `Devs:Monitors` (e.g. `NTSC` on a PAL machine); without it
   the game uses the machine's default.
+- **Textures:** as the original, distant polygons flat, or all polygons flat (faster).
+- **Planets:** Original, or Reduced (default, faster: small distant patches are less detailed).
+- **Sound:** Off, Paula (`audio.device`) or AHI. If AHI is not installed, the game uses Paula.
+- **Music:** Off, AdLib pre-rendered, General MIDI pre-rendered, AdLib live, General MIDI live.
+  - *Pre-rendered* plays files from `AmiFFE/Music/AdLib/` or `AmiFFE/Music/GM/`. Make them once
+    with the **Render title song** or **Render all 17 songs** button (the buttons are active
+    only in a pre-rendered mode). Quality *Fast* (11 kHz) takes about 20 minutes for all songs
+    on a 68040/40, *Best* (22 kHz) about 4 hours; the title song alone is a small part of that.
+    `ffe-music` can also be run from the Shell. It is plain C, so it can be built from the
+    sources for a PC to make the files there faster.
+  - *Live* synthesises the music while the game runs. This needs a fast CPU: a 68060 or better.
+  - AdLib uses the instrument banks from your game files; General MIDI uses `ffe_gm.bnk`.
 
 The settings are stored in `amiffe.cfg` next to the executable, one `key=value` per line
-(`gfx=0|1|2`, `video=0|1|2`), and can also be edited by hand.
+(`gfx=`, `video=`, `tex=`, `planetlod=`, `sound=`, `music=`, `musicrate=`), and can also be
+edited by hand.
 
 ## Playing
 
@@ -143,6 +171,11 @@ no game data. If the rights holders object, it will be taken down.
 - **Tom Morton** — [GLFrontier](https://github.com/pcercuei/glfrontier).
 - **Jongware** — documentation of the FFE model code format.
 - **Mikael Kalms** — the chunky-to-planar routines used for the AGA display.
+- **Versilian Studios (Sam Gossner) and contributors** — the CC0 samples in `ffe_gm.bnk`:
+  [VCSL](https://github.com/sgossner/VCSL) and
+  [VS Chamber Orchestra: Community Edition](https://github.com/sgossner/VSCO-2-CE) (recorded by
+  Sam Gossner and Simon Dalzell / Ivy Audio, cut by Elan Hickler / Soundemote). Sources and
+  licences: `tools/music/GMBANK-SOURCES.md`.
 
 ## Licence
 

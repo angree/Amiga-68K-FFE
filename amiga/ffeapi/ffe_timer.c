@@ -82,7 +82,7 @@ static ULONG g_fixed_calls;
 static int fixed_mode (void)
 {
 	if (g_fixed < 0) {
-		BPTR l = Lock ((CONST_STRPTR)"PROGDIR:ffe_fixedstep", ACCESS_READ);
+		BPTR l = Lock ((CONST_STRPTR)ffe_pd ("ffe_fixedstep"), ACCESS_READ);
 		g_fixed = l != 0;
 		if (l) UnLock (l);
 	}

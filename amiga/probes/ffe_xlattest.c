@@ -2305,7 +2305,7 @@ int main (void)
 {
 	int i, j;
 
-	g_log = fopen ("PROGDIR:ffe_xlattest.log", "w");
+	g_log = fopen (ffe_pd ("ffe_xlattest.log"), "w");
 	if (g_log == NULL) return 20;
 
 	/* The result is fetched into a local first so the order of the calls is

@@ -38,7 +38,7 @@ else:
 
 # --- 2. replace the notice text ---------------------------------------------
 TEXT = [
-    "AmiFFE 0.1.3 - Amiga 68k port",
+    "AmiFFE 0.2.0 - Amiga 68k port",
     "Frontier: First Encounters (c) Frontier Developments",
     "Based on JJFFE by John Jordan",
     "Unofficial fan project, not endorsed by Frontier",

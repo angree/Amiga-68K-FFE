@@ -64,11 +64,11 @@ static volatile int g_parked;
 /* PROGDIR:ffe_reboot present -> delete it, return 1. */
 static int wd_flag (void)
 {
-	BPTR lk = Lock ((STRPTR)"PROGDIR:ffe_reboot", SHARED_LOCK);
+	BPTR lk = Lock ((STRPTR)ffe_pd ("ffe_reboot"), SHARED_LOCK);
 
 	if (!lk) return 0;
 	UnLock (lk);
-	DeleteFile ((STRPTR)"PROGDIR:ffe_reboot");
+	DeleteFile ((STRPTR)ffe_pd ("ffe_reboot"));
 	return 1;
 }
 
@@ -93,7 +93,7 @@ static void wd_entry (void)
 	char line[160];
 
 	{
-		BPTR ah = Open ((STRPTR)"PROGDIR:ffe_watchdog_alive.log", MODE_NEWFILE);
+		BPTR ah = Open ((STRPTR)ffe_pd ("ffe_watchdog_alive.log"), MODE_NEWFILE);
 		if (ah) { wd_write (ah, "watchdog alive\n"); Close (ah); }
 	}
 	for (;;) {
@@ -119,10 +119,10 @@ static void wd_entry (void)
 		}
 		if (still < 0) continue;	/* hang already logged */
 		p = ffe_get_presents ();
-		if (p == last && p > 30) still++;
+		if (p == last && p >= 2) still++;	/* 2026-10-29: MorphOS stops at present 2 */
 		else { still = 0; last = p; }
 		if (still >= 8) {		/* 8 x 0.5 s without a present */
-			BPTR fh = Open ((STRPTR)"PROGDIR:ffe_watchdog.log", MODE_NEWFILE);
+			BPTR fh = Open ((STRPTR)ffe_pd ("ffe_watchdog.log"), MODE_NEWFILE);
 
 			if (fh) {
 				const unsigned long *sp;
@@ -169,10 +169,10 @@ void ffe_hold_wait (void)
 	BPTR lk;
 
 	if (!ffe_dev_mode ()) return;	/* release: no harness hold */
-	lk = Lock ((STRPTR)"PROGDIR:ffe_hold", SHARED_LOCK);
+	lk = Lock ((STRPTR)ffe_pd ("ffe_hold"), SHARED_LOCK);
 	if (!lk) return;
 	UnLock (lk);
-	wd_touch ("PROGDIR:ffe_holding");	/* the host waits for this: "holding, logs are safe" */
+	wd_touch (ffe_pd ("ffe_holding"));	/* the host waits for this: "holding, logs are safe" */
 	/* RELEASE BY CREATION, NOT BY DELETION (2026-10-02). The first version
 	 * waited for the host to DELETE ffe_hold, and once the machine sat in the
 	 * hold forever: WinUAE's directory filesystem kept answering the Lock of a
@@ -180,11 +180,11 @@ void ffe_hold_wait (void)
 	 * seen (ffe_reboot proves it every run), so the host now creates ffe_go and
 	 * the Amiga deletes both files itself. */
 	for (;;) {
-		lk = Lock ((STRPTR)"PROGDIR:ffe_go", SHARED_LOCK);
+		lk = Lock ((STRPTR)ffe_pd ("ffe_go"), SHARED_LOCK);
 		if (lk) {
 			UnLock (lk);
-			DeleteFile ((STRPTR)"PROGDIR:ffe_go");
-			DeleteFile ((STRPTR)"PROGDIR:ffe_hold");
+			DeleteFile ((STRPTR)ffe_pd ("ffe_go"));
+			DeleteFile ((STRPTR)ffe_pd ("ffe_hold"));
 			return;
 		}
 		/* a restart request while holding: this instance may be an OLD binary
@@ -204,7 +204,7 @@ static void wd_exit (void)
 	int i;
 
 	ffe_boot_mark ("wd_exit (last atexit)");
-	if (!ffe_quit_req) wd_touch ("PROGDIR:ffe_hold");
+	if (!ffe_quit_req) wd_touch (ffe_pd ("ffe_hold"));
 	g_exiting = 1;
 	for (i = 0; i < 100 && !g_wd_done; i++) Delay (5);
 	Delay (10);
@@ -231,7 +231,7 @@ void ffe_watchdog_start (void)
 	                   NP_WindowPtr, (ULONG)-1,
 	                   TAG_END);
 	if (pr) atexit (wd_exit);
-	lf = ffe_logopen ("PROGDIR:ffe_game.log", "a");
+	lf = ffe_logopen (ffe_pd ("ffe_game.log"), "a");
 	if (lf) { fprintf (lf, "WATCHDOG CreateNewProc -> %lx\n", (unsigned long)pr); fclose (lf); }
 }
 
@@ -258,7 +258,7 @@ void ffe_boot_mark (const char *tag)
 	DateStamp (&ds);
 	ms = (unsigned long)ds.ds_Minute * 60000UL + (unsigned long)ds.ds_Tick * 20UL;
 	if (first) t0 = ms;
-	fh = Open ((STRPTR)"PROGDIR:ffe_boot.log", first ? MODE_NEWFILE : MODE_READWRITE);
+	fh = Open ((STRPTR)ffe_pd ("ffe_boot.log"), first ? MODE_NEWFILE : MODE_READWRITE);
 	first = 0;
 	if (!fh) return;
 	Seek (fh, 0, OFFSET_END);
@@ -280,13 +280,13 @@ void ffe_park (void)
 		char t[48];
 
 		if (ffe_last_fps10 >= 0)
-			snprintf (t, sizeof t, "AmiFFE 0.1.3  %ld.%ld FPS  PARKED",
+			snprintf (t, sizeof t, "AmiFFE 0.2.0  %ld.%ld FPS  PARKED",
 			          ffe_last_fps10 / 10, ffe_last_fps10 % 10);
 		else
-			snprintf (t, sizeof t, "AmiFFE 0.1.3  PARKED");
+			snprintf (t, sizeof t, "AmiFFE 0.2.0  PARKED");
 		amigagfx_set_bar_text (t);
 	}
 	g_parked = 1;
-	wd_touch ("PROGDIR:ffe_holding");
+	wd_touch (ffe_pd ("ffe_holding"));
 	for (;;) Delay (50);
 }

@@ -39,6 +39,7 @@
  * 64-bit mantissa produces anyway.
  */
 
+#include "../ffeapi/ffe_dev.h"
 #include <stdio.h>	/* the HALO timeline probe */
 extern int ffe_is_quiet (void);
 
@@ -192,7 +193,7 @@ void Func1877_c (void *ctx, long *centre, long *corners,
 	 * lining up (we sit inside Mars where the reference frames it). */
 	if ((ffe_p1877_calls & 15) == 1 && ffe_p1877_calls < 16 * 400 && !ffe_is_quiet ()) {
 		extern long DATA_008804_clk __asm__("DATA_008804");
-		FILE *hf = fopen ("PROGDIR:ffe_halo.log", "a");
+		FILE *hf = fopen (ffe_pd ("ffe_halo.log"), "a");
 
 		if (hf != NULL) {
 			fprintf (hf, "HALO clk=%ld c=(%ld,%ld,%ld) atmo=%ld bands=%ld\n",

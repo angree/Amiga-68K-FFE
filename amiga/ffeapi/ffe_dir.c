@@ -245,7 +245,7 @@ static void dir_scan_volumes (void)
 		vbuf[DIR_PATHMAX - 1] = 0;
 		colon = strchr (vbuf, ':');
 		if (colon != NULL) colon[1] = 0;
-		else strcpy (vbuf, "PROGDIR:");
+		else strcpy (vbuf, ffe_pd (""));
 		dir_add_vol (vbuf);
 	}
 }
@@ -325,7 +325,7 @@ void ffe_dir_init_from (const char *cfgfile)
 	 * player thinks it is. */
 	lock = dir_lock_dir (pDirCmmdrPath);
 	if (lock == 0) {
-		if (!dir_prog_dir (pDirCmmdrPath)) strcpy (pDirCmmdrPath, "PROGDIR:");
+		if (!dir_prog_dir (pDirCmmdrPath)) strcpy (pDirCmmdrPath, ffe_pd (""));
 		dir_add_sep (pDirCmmdrPath);
 	}
 	else UnLock (lock);
@@ -499,15 +499,17 @@ void DirNavigateTree (FileInfo *pFile)
  * the process (it IS the current directory). */
 void ffe_find_data_dir (void)
 {
-	static const char *const dirs[] = { "PROGDIR:FFE", "PROGDIR:Elite3", "PROGDIR:FIRSTENC", NULL };
-	char probe[64];
+	static const char *const names[] = { "FFE", "Elite3", "FIRSTENC", NULL };
+	const char *dirs[4];
+	char probe[300];
 	BPTR l;
 	int i;
 
-	l = Lock ((CONST_STRPTR)"PROGDIR:MISSION.DAT", ACCESS_READ);
+	for (i = 0; i < 4; i++) dirs[i] = names[i] ? ffe_pd (names[i]) : NULL;	/* 3 of the 8 ffe_pd buffers */
+	l = Lock ((CONST_STRPTR)ffe_pd ("MISSION.DAT"), ACCESS_READ);
 	if (l != 0) {
 		UnLock (l);
-		l = Lock ((CONST_STRPTR)"PROGDIR:", ACCESS_READ);
+		l = Lock ((CONST_STRPTR)ffe_pd (""), ACCESS_READ);
 		if (l != 0) CurrentDir (l);
 		return;
 	}

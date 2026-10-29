@@ -93,6 +93,59 @@ def tex_loop(top, skip, trans):
 #     ebx <= 320 (2^21 * 320 < 2^30). Otherwise the v1 loop below runs.
 # At the exit esi = hi:lo, edi = edi + ebx*dv (MULS.L, mod 2^32 like the
 # x86's repeated adds), eax = end of span, ebx = 0 -- the v1 loop's state.
+# TEXTURE DETAIL (2026-10-24, developer's request: "distant polygons become
+# untextured in the colour of their texture -- it will look like Frontier 1").
+# PROGDIR:amiffe.cfg tex= (ffe_tex_mode): 0 = the original (this block is a
+# single test and falls through), 1 = flat when the texture is minified by 2+
+# texels per pixel in u or v (i.e. far away), 2 = always flat. The colour is
+# ffe_tex_flat_index (ffe_system.c: the texture's most frequent index) through
+# THIS quad's colour table [DATA_009252], so lighting is kept; it answers -1
+# for a transparent texture with holes, which then stays textured.
+# The flat fill leaves the state the textured loop leaves where it matters:
+# eax = end of span, ebx = 0, memory = the span written. esi/edi are not
+# advanced: they are dead after the loop (see above), so nothing reads them.
+# The C call may clobber d0/d1/a0/a1 only: d0 is saved, d1 (ecx) is dead.
+def tex_flat(t, trans):
+    return ("\txref\t_ffe_tex_mode\n"
+            "\txref\t_ffe_tex_flat_index\n"
+            "\tmove.w\t(_ffe_tex_mode).l,d7\n"
+            "\tbeq\t{t}_tex\n"
+            "\tcmpi.w\t#2,d7\n"
+            "\tbeq.s\t{t}_flat\n"
+            "\tmove.l\t(-4,a5),d7\n"
+            "\tbpl.s\t{t}_f1\n"
+            "\tneg.l\td7\n"
+            "{t}_f1:\n"
+            "\tcmp.l\t#$20000,d7\n"
+            "\tbhs.s\t{t}_flat\n"
+            "\tmove.l\t(-8,a5),d7\n"
+            "\tbpl.s\t{t}_f2\n"
+            "\tneg.l\td7\n"
+            "{t}_f2:\n"
+            "\tcmp.l\t#$20000,d7\n"
+            "\tblo\t{t}_tex\n"
+            "\txdef\t{t}_flat\n"
+            "{t}_flat:\n"
+            "\tmove.l\td0,-(sp)\n"
+            "\tmove.l\t#" + ("1" if trans else "0") + ",-(sp)\n"
+            "\tmove.l\t(DATA_009235).l,-(sp)\n"
+            "\tjsr\t_ffe_tex_flat_index\n"
+            "\taddq.l\t#8,sp\n"
+            "\tmove.l\td0,d7\n"
+            "\tmove.l\t(sp)+,d0\n"
+            "\ttst.l\td7\n"
+            "\tbmi\t{t}_tex\n"
+            "\tlea\t(DATA_009252).l,a1\n"
+            "\tmove.b\t(0,a1,d7.w),d7\n"
+            "\tmovea.l\td0,a0\n"
+            "{t}_fl:\n"
+            "\tmove.b\td7,(a0)+\n"
+            "\tsubq.l\t#1,d3\n"
+            "\tbne.s\t{t}_fl\n"
+            "\tmove.l\ta0,d0\n"
+            "\tbra\t{t}_done\n")
+
+
 def tex_fast(top, trans):
     t = top
     if trans:
@@ -105,6 +158,8 @@ def tex_fast(top, trans):
         px = ("\tmove.b\t(0,a4,d1.w),d7\n"
               "\tmove.b\t(0,a1,d7.w),(a0)+\n")
     return (TAG + "Tex64%s span loop: exact ADDX fast path + v1 fallback (see the script)\n"
+            + tex_flat(t, trans) +
+            "{t}_tex:\n"
             "\tmove.l\ta3,d7\n"
             "\tbpl.s\t{t}_g1\n"
             "\tneg.l\td7\n"
@@ -298,7 +353,34 @@ P50HZ_next:
 \tmoveq\t#-1,d0
 """
 
-PATCHES = [
+# PLANET DETAIL (2026-10-24). The planet is an icosahedron split 4-fold per
+# level by FUNC_001868..1873. Each splitter stops a patch whose doubled screen
+# area is < 150 -- but only above level 8 (`cmp <level>,byte +0x8 / jng
+# subdivide`, ffe.asm 121768 / 122703 / 123970 / 125561 / 126818 / 128073),
+# so a planet a few tens of pixels across is still drawn as hundreds of
+# textured triangles (measured: ~140 of 220 ms per frame in the intro's
+# small-Earth scene on the 68060 target). The 8 becomes the variable
+# ffe_planet_lod (ffe_system.c, amiffe.cfg planetlod=): 8 is the original
+# and gives the same flags as the immediate, so the picture is unchanged;
+# 0 lets small patches stop from level 1 on. Same compare order as the x86
+# (level minus threshold), so the `jng` after it is untouched; d7 is scratch.
+def lod(fn, line, old, new):
+    return (fn, "; ffe.asm:%d " % line, old + "\n",
+            TAG + "planet detail threshold from ffe_planet_lod (was 8)\n"
+            "\txref\t_ffe_planet_lod\n" + new + "\n",
+            [" ".join(old.split())])
+
+
+LOD_PATCHES = [
+    lod("FUNC_001868.s", 121768, "\tcmpa.l\t#8,a2", "\tcmpa.l\t(_ffe_planet_lod).l,a2"),
+    lod("FUNC_001869.s", 122703, "\tcmp.l\t#8,d0", "\tcmp.l\t(_ffe_planet_lod).l,d0"),
+    lod("FUNC_001870.s", 123970, "\tcmpi.l\t#8,(32,a5)", "\tmove.l\t(32,a5),d7\n\tcmp.l\t(_ffe_planet_lod).l,d7"),
+    lod("FUNC_001871.s", 125561, "\tcmpi.l\t#8,(32,a5)", "\tmove.l\t(32,a5),d7\n\tcmp.l\t(_ffe_planet_lod).l,d7"),
+    lod("FUNC_001872.s", 126818, "\tcmpi.l\t#8,(32,a5)", "\tmove.l\t(32,a5),d7\n\tcmp.l\t(_ffe_planet_lod).l,d7"),
+    lod("FUNC_001873.s", 128073, "\tcmpi.l\t#8,(32,a5)", "\tmove.l\t(32,a5),d7\n\tcmp.l\t(_ffe_planet_lod).l,d7"),
+]
+
+PATCHES = LOD_PATCHES + [
     ("Timer50Hz.s", "\nLOC_50Hz_no9160:\n", "\tbge\tLOC_50Hz_accumloop\n", P50HZ,
      ["move.l #255,d0", "lea (DATA_KeyAccumTable).l,a0", "cmpi.l #0,(0,a0,d0.l*4)",
       "beq LOC_50Hz_accumloopend", "lea (DATA_KeyAccumTable).l,a0",

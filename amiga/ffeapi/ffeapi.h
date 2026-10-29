@@ -228,7 +228,8 @@ int ffe_system_ready (void);
 /* Where the Amiga platform layer keeps ITS settings -- [DIR], and whatever the
  * other parts of the layer come to need. Not the same file as the game's own
  * jjffe.cfg, which the game opens by its own hard-coded name. */
-#define FFE_CONFIGFILE "PROGDIR:ffeamiga.cfg"
+const char *ffe_pd (const char *name);	/* ffe_progdir.c: the program folder, never PROGDIR: */
+#define FFE_CONFIGFILE ffe_pd ("ffeamiga.cfg")
 
 typedef struct {
 	char *name;

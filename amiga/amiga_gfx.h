@@ -71,6 +71,8 @@ typedef struct {
  * entries to offer in the resolution list at all, so an AGA-only machine sees
  * exactly the list it saw before RTG support existed. */
 int amigagfx_rtg_has_mode(int w, int h);
+/* 1 when running on MorphOS (FindResident("MorphOS")): no chipset there */
+int amigagfx_is_morphos(void);
 
 /* AMIGAGFX_BACKEND_* of the screen currently open (AGA when none is). */
 int amigagfx_backend(void);

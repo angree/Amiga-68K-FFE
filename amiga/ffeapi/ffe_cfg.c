@@ -27,7 +27,7 @@
  * field to keep a third pointer in and we may not add one. Every name and data
  * pointer aims inside that one block, NUL-terminated in place.
  *
- * No Amiga headers: this is portable C on top of stdio, and "PROGDIR:x.cfg"
+ * No Amiga headers: this is portable C on top of stdio, and ffe_pd ("x.cfg")
  * reaches dos.library through fopen() on its own.
  */
 

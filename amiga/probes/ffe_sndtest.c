@@ -200,7 +200,7 @@ int main (void)
 	int loaded = 0, failed = 0, silent = 0, savedkb = 0;
 	static UCHAR dummyblock[64];
 
-	g_log = fopen ("PROGDIR:ffe_sndtest.log", "w");
+	g_log = fopen (ffe_pd ("ffe_sndtest.log"), "w");
 	logf_ ("FFE Paula sound layer probe -- amiga/ffeapi/ffe_sound.c, no game code");
 
 	/* The timer first, the same order SystemInit will use. No screen is opened:

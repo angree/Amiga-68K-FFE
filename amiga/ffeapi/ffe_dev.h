@@ -12,4 +12,6 @@
 int ffe_dev_mode (void);
 /* fopen() for probe output: NULL (as a failed fopen) outside developer mode */
 FILE *ffe_logopen (const char *path, const char *mode);
+/* "<this program's folder>/name" as a real path, never PROGDIR: (ffe_progdir.c) */
+const char *ffe_pd (const char *name);
 #endif

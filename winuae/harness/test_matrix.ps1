@@ -67,9 +67,26 @@ $lines += ($Game + ' >Work:stdout.txt')
 # with SW_SHOWNOACTIVATE.
 # ONE WinUAE on the whole PC (owner's rule, C:\temp\briefs\EMU_RULES.md): wait until no
 # winuae.exe runs and C:\temp\winuae.lock is absent, then hold the lock for the run.
-$lock = 'C:\temp\winuae.lock'
-while ((Get-Process winuae -ErrorAction SilentlyContinue) -or (Test-Path $lock)) { Write-Host "waiting for the emulator slot"; Start-Sleep 60 }
-Set-Content $lock "AmiFFE OS matrix test $Config $(Get-Date -Format s)" -Encoding ascii
+# EMULATOR SLOTS. ATOMIC (2026-10-24): two queued runs used to test "no lock"
+# and then write it as two steps, so both could start when the slot came free.
+# CreateNew fails if the file exists, so exactly one waiter wins a slot.
+# TWO SLOTS (developer, 2026-10-24: "two emulators at once, the PC can take
+# it"): C:\temp\winuae.lock and winuae.lock2, never more than two winuae.exe.
+$lock = $null
+while ($lock -eq $null) {
+  if (@(Get-Process winuae -ErrorAction SilentlyContinue).Count -lt 2) {
+    foreach ($cand in 'C:\temp\winuae.lock', 'C:\temp\winuae.lock2') {
+      try {
+        $fs = [System.IO.File]::Open($cand, [System.IO.FileMode]::CreateNew)
+        $b = [System.Text.Encoding]::ASCII.GetBytes("AmiFFE test $Config $(Get-Date -Format s)")
+        $fs.Write($b, 0, $b.Length); $fs.Close()
+        $lock = $cand
+        break
+      } catch { }
+    }
+  }
+  if ($lock -eq $null) { Write-Host "waiting for an emulator slot"; Start-Sleep 30 }
+}
 $fg0 = [TM]::GetForegroundWindow()
 $p = Start-Process -FilePath $exe -ArgumentList @('-nodirectinput', '-norawinput', '-f', "`"$cfg`"") -WorkingDirectory (Split-Path $exe) -PassThru
 Write-Host "started pid $($p.Id) config $Config"

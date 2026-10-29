@@ -29,6 +29,8 @@ VASM=vasmm68k_mot
 # and friends). The bebbo NDK does not ship them, and amiga_gfx.c needs them even
 # for an AGA-only build: the RTG backend is compiled in and chosen at runtime.
 CFLAGS="-mcpu=68020 -msoft-float -O1 -Wall -I$AMIGA -I$AMIGA/cgx-include -I$NDK"
+# the General MIDI sample synth is optional (amiga/music/gm_synth.c)
+[ -f "$AMIGA/music/gm_synth.c" ] && CFLAGS="$CFLAGS -DFFE_HAVE_GM"
 
 TARGET=${1:-ffe_agatest}
 mkdir -p "$OUT"
@@ -36,11 +38,25 @@ mkdir -p "$OUT"
 # The display prefs tool (amiga/tools/ffe-prefs.c): plain C on Intuition and
 # GadTools, nothing of the platform layer.
 if [ "$TARGET" = "ffe-prefs" ]; then
-	$CC $CFLAGS -noixemul -o "$OUT/ffe-prefs" "$AMIGA/tools/ffe-prefs.c"
+	$CC $CFLAGS -noixemul -o "$OUT/ffe-prefs" "$AMIGA/tools/ffe-prefs.c" "$AMIGA/ffeapi/ffe_progdir.c"
 	ls -l "$OUT/ffe-prefs"
 	mkdir -p "$DEPLOY"
 	cp "$OUT/ffe-prefs" "$DEPLOY/ffe-prefs"
 	echo "deployed -> $DEPLOY/ffe-prefs"
+	exit 0
+fi
+
+# The music renderer (amiga/tools/ffe-music.c + amiga/music/): portable C on
+# stdio, the same source as the PC build in tools/music/build_render.sh.
+if [ "$TARGET" = "ffe-music" ]; then
+	M="$AMIGA/music"
+	SRCS="$AMIGA/tools/ffe-music.c $AMIGA/ffeapi/ffe_progdir.c $M/hmp.c $M/opl2.c $M/adlib_midi.c $M/ima_enc.c"
+	[ -f "$M/gm_synth.c" ] && SRCS="$SRCS $M/gm_synth.c"
+	$CC $CFLAGS -noixemul -o "$OUT/ffe-music" $SRCS
+	ls -l "$OUT/ffe-music"
+	mkdir -p "$DEPLOY"
+	cp "$OUT/ffe-music" "$DEPLOY/ffe-music"
+	echo "deployed -> $DEPLOY/ffe-music"
 	exit 0
 fi
 
@@ -72,9 +88,24 @@ esac
 # FFEAPI_SRCS list above.
 case "$TARGET" in
 ffe_apitest|ffe_sndtest|ffe_dirtest|ffe_drawtest|ffe_game)
-	echo "=== amiga_audio.c ==="
-	$CC $CFLAGS -c "$AMIGA/amiga_audio.c" -o "$OUT/amiga_audio.o"
+	# 2026-10-24: the ReMoM port's version (music refill process); its header
+	# asks for -O0 (a read-after-call miscompile at -O1 on this toolchain)
+	echo "=== amiga_audio.c (-O0) ==="
+	$CC $(echo "$CFLAGS" | sed 's/-O[12s]/-O0/') -c "$AMIGA/amiga_audio.c" -o "$OUT/amiga_audio.o"
 	EXTRA_OBJS="$OUT/amiga_audio.o"
+	;;
+esac
+
+# Music (2026-10-24, amiga/music/): HMP sequencer, OPL2 + AdLib driver, the
+# General MIDI sample synth when present, used by ffeapi/ffe_music.c.
+case "$TARGET" in
+ffe_apitest|ffe_sndtest|ffe_dirtest|ffe_drawtest|ffe_game)
+	for m in hmp opl2 adlib_midi gm_synth; do
+		[ -f "$AMIGA/music/$m.c" ] || continue
+		echo "=== music/$m.c ==="
+		$CC $CFLAGS -c "$AMIGA/music/$m.c" -o "$OUT/music_$m.o"
+		EXTRA_OBJS="$EXTRA_OBJS $OUT/music_$m.o"
+	done
 	;;
 esac
 

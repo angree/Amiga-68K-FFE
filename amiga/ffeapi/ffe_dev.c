@@ -9,7 +9,7 @@ int ffe_dev_mode (void)
 	static int state = -1;
 
 	if (state < 0) {
-		FILE *f = fopen ("PROGDIR:ffe_dev", "r");
+		FILE *f = fopen (ffe_pd ("ffe_dev"), "r");
 		state = f != NULL;
 		if (f != NULL) fclose (f);
 	}

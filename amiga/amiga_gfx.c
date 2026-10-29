@@ -92,7 +92,8 @@ void amigagfx_set_verbose(int verbose)
  * host after the game exits, so one run must be conclusive: every line is
  * numbered and labelled, the first call truncates the file, and a hard cap
  * keeps it from flooding no matter how often a phase repeats. */
-#define AMIGA_MEM_LOG      "PROGDIR:amiga_mem.log"
+const char *ffe_pd (const char *name);
+#define AMIGA_MEM_LOG      ffe_pd ("amiga_mem.log")
 #define AMIGA_MEM_MAXLINES 100
 
 void AmigaMemProbe(const char *label)
@@ -361,9 +362,133 @@ static ULONG rtg_best_mode(int w, int h)
 	return id;
 }
 
+/* ---- RTG DEEP (2026-10-29, from the AmiSC port, I:\GITHUB\Amiga_OpenBW) ----
+ *
+ * MorphOS runs this same 68k binary, but it has no chipset at all and its 8-bit
+ * CLUT screens cannot be trusted: in QEMU pegasos2 + MorphOS 3.20 there is no
+ * 8-bit mode (measured here: "RTG: no 8-bit mode for 320x219"), and the AGA
+ * fallback showed only a black game area. So there the screen is opened DEEP
+ * (32/24/16/15 bits) and every rectangle goes through WriteLUTPixelArray with
+ * g_ctable, which turns palette indices into colours at blit time.
+ *
+ * Used when: MorphOS is running, or there is no 8-bit mode and no AGA chipset
+ * to fall back to. An AGA machine on AmigaOS keeps its old paths untouched.
+ *
+ * The cost that is not free: a palette change leaves what is already on the
+ * display in the OLD colours, so amigagfx_set_palette sets g_deep_full_pending
+ * and the next blit covers the whole game area. */
+static int g_rtg_deep;          /* the open RTG screen is deep */
+static int g_rtg_deep_depth;
+static int g_deep_full_pending;
+static int g_morphos = -1;      /* -1 not asked yet */
+
+static int is_morphos(void)
+{
+	if (g_morphos < 0) {
+		g_morphos = FindResident((CONST_STRPTR)"MorphOS") != NULL ? 1 : 0;
+		if (g_morphos) amigagfx_log("MorphOS detected - RTG deep screen");
+	}
+	return g_morphos;
+}
+
+int amigagfx_is_morphos(void) { return is_morphos(); }
+
+static int rtg_deep_allowed(void)
+{
+	return is_morphos() || (GfxBase->ChipRevBits0 & GFXF_AA_ALICE) == 0;
+}
+
+/* 32, 24, 16, 15 bits in that order; the first real Cybergraphics id that is
+ * deep enough and at least w x h. INVALID_ID otherwise. */
+static ULONG rtg_best_deep_mode(int w, int h, int *depth)
+{
+	static const ULONG want[4] = { 32UL, 24UL, 16UL, 15UL };
+	struct TagItem tags[4];
+	int i;
+
+	if (!cgx_open()) return (ULONG)INVALID_ID;
+	for (i = 0; i < 4; i++) {
+		ULONG id, d;
+		tags[0].ti_Tag = CYBRBIDTG_NominalWidth;  tags[0].ti_Data = (ULONG)w;
+		tags[1].ti_Tag = CYBRBIDTG_NominalHeight; tags[1].ti_Data = (ULONG)h;
+		tags[2].ti_Tag = CYBRBIDTG_Depth;         tags[2].ti_Data = want[i];
+		tags[3].ti_Tag = TAG_END;                 tags[3].ti_Data = 0UL;
+		id = BestCModeIDTagList(tags);
+		if (id == (ULONG)INVALID_ID || !IsCyberModeID(id)) {
+			fprintf(stdout, "amiga: deep %lu: BestCModeID -> $%08lx (not CGX)\n",
+			        (unsigned long)want[i], (unsigned long)id);
+			continue;
+		}
+		d = GetCyberIDAttr(CYBRIDATTR_DEPTH, id);
+		fprintf(stdout, "amiga: deep %lu: BestCModeID -> $%08lx %lux%lu depth %lu bppix %lu\n",
+		        (unsigned long)want[i], (unsigned long)id,
+		        (unsigned long)GetCyberIDAttr(CYBRIDATTR_WIDTH, id),
+		        (unsigned long)GetCyberIDAttr(CYBRIDATTR_HEIGHT, id),
+		        (unsigned long)d, (unsigned long)GetCyberIDAttr(CYBRIDATTR_BPPIX, id));
+		if (d < 15UL || GetCyberIDAttr(CYBRIDATTR_BPPIX, id) < 2UL) continue;
+		if (GetCyberIDAttr(CYBRIDATTR_WIDTH, id)  < (ULONG)w ||
+		    GetCyberIDAttr(CYBRIDATTR_HEIGHT, id) < (ULONG)h) continue;
+		*depth = (int)d;
+		return id;
+	}
+	/* No nominal match: walk every display mode and take the smallest deep
+	 * Cybergraphics one that holds w x h (the screen then opens at w x h in the
+	 * top-left of that mode). */
+	{
+		ULONG id = INVALID_ID, best = INVALID_ID, bestarea = 0xffffffffUL;
+		int bestd = 0;
+
+		while ((id = NextDisplayInfo(id)) != (ULONG)INVALID_ID) {
+			ULONG mw, mh, d;
+			if (!IsCyberModeID(id)) continue;
+			d  = GetCyberIDAttr(CYBRIDATTR_DEPTH, id);
+			mw = GetCyberIDAttr(CYBRIDATTR_WIDTH, id);
+			mh = GetCyberIDAttr(CYBRIDATTR_HEIGHT, id);
+			if (d < 15UL || GetCyberIDAttr(CYBRIDATTR_BPPIX, id) < 2UL) continue;
+			if (mw < (ULONG)w || mh < (ULONG)h) continue;
+			if (mw * mh < bestarea || (mw * mh == bestarea && (int)d > bestd)) {
+				best = id; bestarea = mw * mh; bestd = (int)d;
+			}
+		}
+		fprintf(stdout, "amiga: deep mode list -> $%08lx depth %d\n",
+		        (unsigned long)best, bestd);
+		fflush(stdout);
+		if (best != (ULONG)INVALID_ID) { *depth = bestd; return best; }
+	}
+	return (ULONG)INVALID_ID;
+}
+
+/* The bar of a deep screen is drawn in the colours of OpenScreen time and a
+ * later LoadRGB32 recolours nothing (measured on MorphOS by the AmiSC port), so
+ * it gets its own four entries, given WITH the open: 0 black, 1 trim black,
+ * 2 text white, 3 fill dark grey - FFE's own bar colours (ramp 15 / 5). */
+#define DEEP_PEN_TRIM 1
+#define DEEP_PEN_TEXT 2
+#define DEEP_PEN_FILL 3
+static UWORD g_deep_pens[] = {
+	DEEP_PEN_TEXT, DEEP_PEN_FILL, DEEP_PEN_TEXT, DEEP_PEN_TEXT, DEEP_PEN_TRIM,
+	DEEP_PEN_FILL, DEEP_PEN_TEXT, DEEP_PEN_FILL, DEEP_PEN_TEXT, DEEP_PEN_TEXT,
+	DEEP_PEN_FILL, DEEP_PEN_TRIM, (UWORD)~0
+};
+#define C32(v) ((ULONG)(v) * 0x01010101UL)
+static ULONG g_deep_colors32[] = {
+	(4UL << 16) | 0UL,
+	C32(0),   C32(0),   C32(0),
+	C32(0),   C32(0),   C32(0),
+	C32(255), C32(255), C32(255),
+	C32(68),  C32(68),  C32(68),
+	0UL
+};
+#undef C32
+
 int amigagfx_rtg_has_mode(int w, int h)
 {
 	ULONG id = rtg_best_mode(w, h);
+
+	if (id == (ULONG)INVALID_ID && CyberGfxBase != NULL && rtg_deep_allowed()) {
+		int d = 0;
+		id = rtg_best_deep_mode(w, h, &d);
+	}
 
 	/* The probe runs while building the resolution list, long before any
 	 * screen exists. Leave the library open only if it is already carrying an
@@ -727,8 +852,14 @@ static int open_screen_aga(int w, int h, ULONG quiet, ULONG title, int depth)
  * caller should open an AGA screen instead. */
 static int open_screen_rtg(int w, int h, ULONG quiet, ULONG title)
 {
-	ULONG modeid = rtg_best_mode(w, h);
+	ULONG modeid = is_morphos() ? (ULONG)INVALID_ID : rtg_best_mode(w, h);
+	int deep = 0, deep_depth = 8;
 
+	g_rtg_deep = 0;
+	if (modeid == (ULONG)INVALID_ID && rtg_deep_allowed()) {
+		modeid = rtg_best_deep_mode(w, h, &deep_depth);
+		deep = modeid != (ULONG)INVALID_ID;
+	}
 	if (modeid == (ULONG)INVALID_ID) {
 		fprintf(stdout, "amiga: RTG: no 8-bit mode for %dx%d - falling back to AGA\n", w, h);
 		fflush(stdout);
@@ -739,14 +870,15 @@ static int open_screen_rtg(int w, int h, ULONG quiet, ULONG title)
 	g_screen = OpenScreenTags(NULL,
 	                          SA_Width,     (ULONG)w,
 	                          SA_Height,    (ULONG)h,
-	                          SA_Depth,     (ULONG)DEPTH_AGA,
+	                          SA_Depth,     (ULONG)(deep ? deep_depth : DEPTH_AGA),
 	                          SA_Type,      (ULONG)CUSTOMSCREEN,
 	                          SA_Quiet,     quiet,
 	                          SA_ShowTitle, title,
 	                          SA_Title,     (ULONG)g_screen_title,
-	                          SA_DetailPen, 15UL,
-	                          SA_BlockPen,  17UL,
-	                          SA_Pens,      (ULONG)g_screen_pens,
+	                          SA_DetailPen, deep ? (ULONG)DEEP_PEN_TEXT : 15UL,
+	                          SA_BlockPen,  deep ? (ULONG)DEEP_PEN_FILL : 17UL,
+	                          SA_Pens,      (ULONG)(deep ? g_deep_pens : g_screen_pens),
+	                          deep ? SA_Colors32 : TAG_IGNORE, (ULONG)g_deep_colors32,
 	                          SA_DisplayID, modeid,
 	                          TAG_END);
 	if (g_screen == NULL) {
@@ -761,7 +893,18 @@ static int open_screen_rtg(int w, int h, ULONG quiet, ULONG title)
 	 * reading 6 from a previous EHB screen. */
 	g_depth   = DEPTH_AGA;
 	g_backend = AMIGAGFX_BACKEND_RTG;
-	probe_rtg_lock();
+	if (deep) {
+		/* the display holds colours, not indices: the lock path cannot work */
+		g_rtg_deep = 1;
+		g_rtg_deep_depth = deep_depth;
+		g_rtg_method = RTG_METHOD_WLUT;
+		g_deep_full_pending = 1;
+		fprintf(stdout, "amiga: RTG deep screen %dx%d depth %d (WriteLUTPixelArray)\n",
+		        w, h, deep_depth);
+		fflush(stdout);
+	} else {
+		probe_rtg_lock();
+	}
 	return 0;
 }
 
@@ -774,6 +917,8 @@ int amigagfx_open(int w, int h, int show_bar, int backend)
 	ULONG title = show_bar ? TRUE  : FALSE;
 	int err;
 
+	/* MorphOS has no chipset: whatever the prefs say, only RTG can show it */
+	if (is_morphos()) backend = AMIGAGFX_BACKEND_RTG;
 	fprintf(stdout, "amiga: amigagfx_open(%d,%d) wb_bar=%d backend=%s\n",
 	        w, h, show_bar,
 	        backend == AMIGAGFX_BACKEND_RTG ? "RTG" :
@@ -837,7 +982,8 @@ int amigagfx_open(int w, int h, int show_bar, int backend)
 		 * prints the pixel dimensions. */
 		ULONG got = GetVPModeID(&g_screen->ViewPort);
 		if (g_backend == AMIGAGFX_BACKEND_RTG) {
-			fprintf(stdout, "amiga: RTG screen open %dx%d depth 8 (no Chip RAM, no c2p)\n", w, h);
+			fprintf(stdout, "amiga: RTG screen open %dx%d depth %d (no Chip RAM, no c2p)\n",
+			        w, h, g_rtg_deep ? g_rtg_deep_depth : 8);
 			fprintf(stdout, "amiga: modeid wanted $%08lx got $%08lx  blit=%s\n",
 			        (unsigned long)g_want_modeid, (unsigned long)got,
 			        g_rtg_method == RTG_METHOD_LOCK ? "LockBitMap+memcpy"
@@ -916,6 +1062,8 @@ void amigagfx_close(void)
 	 * OpenLibrary on an already-resident library - not worth keeping state for. */
 	cgx_close();
 	g_backend = AMIGAGFX_BACKEND_AGA;
+	g_rtg_deep = 0;
+	g_deep_full_pending = 0;
 	g_yoff = 0;
 }
 
@@ -946,6 +1094,12 @@ void amigagfx_set_palette(const unsigned char *rgb, int first, int count)
 		                       (ULONG)rgb[i*3 + 2];
 	}
 	table[1 + count * 3] = 0UL;
+	if (g_backend == AMIGAGFX_BACKEND_RTG && g_rtg_deep) {
+		/* the pixels get their colours from g_ctable at blit time; the
+		 * colormap keeps the bar's own entries (g_deep_colors32) */
+		g_deep_full_pending = 1;
+		return;
+	}
 	LoadRGB32(&g_screen->ViewPort, table);
 }
 
@@ -1329,6 +1483,11 @@ void amigagfx_blit(int x, int y, int w, int h)
 	if (x2 <= x || y2 <= y) return;
 
 	if (g_backend == AMIGAGFX_BACKEND_RTG) {
+		if (g_rtg_deep && g_deep_full_pending) {
+			/* palette changed since the last blit: repaint everything */
+			g_deep_full_pending = 0;
+			x = 0; y = 0; x2 = g_width; y2 = g_height;
+		}
 		if (g_rtg_method == RTG_METHOD_LOCK &&
 		    !rtg_blit_locked(x, y, x2 - x, y2 - y)) {
 			/* Demote once and for this screen only. Logged outside the lock. */

@@ -36,7 +36,7 @@ static FILE *g_log;
 static FILE *log_open (void)
 {
 	if (!g_log)
-		g_log = ffe_logopen ("PROGDIR:ffe_game.log", "a");
+		g_log = ffe_logopen (ffe_pd ("ffe_game.log"), "a");
 	return g_log;
 }
 
@@ -138,7 +138,7 @@ void FfeDispatchLog (long a, long b, long c)
 	FILE *f;
 
 	if (n >= 4000) return;
-	f = ffe_logopen ("PROGDIR:ffe_dispatch.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_dispatch.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "%d mod=%ld phase=%ld ev=%lx\n", n, a, b,
 	         (unsigned long)c);
@@ -361,7 +361,7 @@ static void FfeAlloc1745 (long a1, long a2, long a3, long wm, int ok)
 
 	if (ffe_alloc1745_n >= ALLOC1745_MAX) return;
 	ffe_alloc1745_n++;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "ALLOC a1=%ld a2=%ld a3=%ld wm=%ld %s\n",
 	         a1, a2, a3, wm, ok ? "accepted" : "refused");
@@ -429,7 +429,7 @@ void FfeShift1750 (long v)
 	} else if (ffe_shift_n > SHIFT_FIRST) {
 		return;
 	}
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "SHIFT n=%ld v=%ld\n", ffe_shift_n, v);
 	fflush (f);
@@ -538,7 +538,7 @@ void FfeLongJmpLog (long val)
 
 	if (n >= 8) { n++; return; }
 	n++;
-	f = ffe_logopen ("PROGDIR:ffe_dump.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_dump.log"), "a");
 	if (f) {
 		fprintf (f, "LONGJMP(%ld) #%d -- the renderer abandoned a frame "
 		         "(pool exhausted); this is the game's own design\n",
@@ -629,7 +629,7 @@ void FfeGateField (long num)
 	if (n_done >= 2) return;
 	if (!(rec > 0x1000 && !(rec & 1))) return;
 	n_done++;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	/* WALK THE WHOLE LIST, exactly as FUNC_000880 does: records are 0x44
 	 * bytes apart (`add ebx,byte +0x44`, ffe.asm:64875) and the list ends
@@ -681,7 +681,7 @@ void FfeDispatch (long num)
 	 * gets 1 -- ever reached the log. */
 	if (caller[2] != 0 || caller[3] == 0) return;
 	n_done++;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	{
 	extern void FUNC_000144 (void) __asm__("FUNC_000144");
@@ -737,7 +737,7 @@ void FfeSysId (long num)
 		seen[n_seen++] = num;
 	}
 
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "SYSID%ld ret=%lx a1=%lx a2=%lx a3=%lx\n",
 	         num, caller[0], caller[1], caller[2], caller[3]);
@@ -769,7 +769,7 @@ void FfePackSys (long num)
 
 	if (n_done >= 16) return;
 	n_done++;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	{
 	/* FUNC_000832 has four call sites (ffe.asm:56259, 57010, 57075, 57691).
@@ -828,7 +828,7 @@ void FfeSysGen (long num)
 	if (n_done >= 3) return;
 	if (!(rec > 0x1000 && !(rec & 1))) return;
 	n_done++;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	{
 	extern unsigned char DATA_008804[] __asm__("DATA_008804");
@@ -1390,7 +1390,7 @@ void FfeCode1772 (long num)
 	if (n_done >= 6) return;
 	if (!(code > 0x1000 && !(code & 1))) return;
 	n_done++;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	{
 		const unsigned short *w = (const unsigned short *)code;
@@ -2190,7 +2190,7 @@ void FfeMark1712 (long site)
 	 * handful of writes per run because the hot sites are counted, not
 	 * pushed. */
 	if (1) {		/* every push: hot sites are counted, not pushed, so this is ~600 writes */
-		FILE *g = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+		FILE *g = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 		if (g != NULL) {
 			long i;
 			fprintf (g, "MRING p=%ld e=%ld hot=%ld ret1778=%08lx low=%ld",
@@ -2337,7 +2337,7 @@ void FfeScene1876 (long num)
 	if (a9 == 0) return;
 	if (n_done >= 8) return;
 	n_done++;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	/* The FUNC_001478 calls that wrote node 6 most recently, printed at the
 	 * CONSUMER so the two machines' logs pair up. */
@@ -2488,7 +2488,7 @@ void FfeGen881 (long num)
 
 	if (n_done >= 40) return;
 	n_done++;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	{
 		extern unsigned char DATA_008843[] __asm__("DATA_008843");
@@ -2532,7 +2532,7 @@ void FfeBodyList (long num)
 	if (n_done >= 4) return;
 	if (!(list > 0x1000 && !(list & 1))) return;
 	n_done++;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "BODYLIST%ld list=%lx", num, list);
 	for (k = 0; k < 48 && *(const unsigned long *)(list + k * 0x44) != 0; k++)
@@ -2592,7 +2592,7 @@ void FfeRendPos (long num)
 	if (n_done >= 40) return;
 	if (!(obj > 0x1000 && !(obj & 1))) return;
 	n_done++;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "REND%ld obj=%lx pos=(%ld,%ld,%ld)\n", num, obj,
 	         *(const long *)(obj + 0x4),
@@ -2619,7 +2619,7 @@ void FfeObjPos (long num)
 	if (!(src > 0x1000 && !(src & 1))) return;
 	n_done++;
 
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	/* The object starts with the 3x3 matrix -- both builders copy nine dwords
 	 * from its base (`rep movsd`, ffe.asm:102238 and 102318) -- so +0x00..0x23
@@ -2802,7 +2802,7 @@ void FfeTypeLog (long num)
 	}
 	rec = arena + idx * 36;
 
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "TYPE idx=%ld arg3=%ld type=%u -> JUMP_%04u  bytes=%d,%d,%d "
 	         "shift=%ld  pre18=(%ld,%ld,%ld) pre14=%ld\n",
@@ -2852,7 +2852,7 @@ void FfeVecLog (long num)
 		s[k] = *(const long *)(sp + 4 * k);
 	for (k = 0; k < 9; k++)
 		m[k] = *(const long *)(mp + 4 * k);
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "VEC@%ld src=(%ld,%ld,%ld)\n", num, s[0], s[1], s[2]);
 	fprintf (f, "   M  %lx %lx %lx | %lx %lx %lx | %lx %lx %lx\n",
@@ -2939,7 +2939,7 @@ void FfeProjLog (long num)
 		sy = 0x4f - ((y << 8) / z);
 	}
 
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	/* WHICH RECORD carries the bad X. The vertex records live in the
 	 * DATA_009200 arena at a 36-byte stride (FUNC_001478 builds the pointer
@@ -3027,7 +3027,7 @@ void FfeVtxLog (long num)
 
 	if (n_done >= 24) return;
 	n_done++;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "VTX@%ld", num);
 	for (k = 2; k <= 4; k++) {
@@ -3085,7 +3085,7 @@ void FfeRootNow (long num)
 	{ static int n_seen; n_seen++; if (n_seen < 200) return; }
 	if (n_done >= 40) return;
 	n_done++;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "seq=%ld ROOT@%ld root=%lx cur=%lx curval=%lx depth=%ld gate=%ld\n",
 	         ++ffe_probe_seq, num, (unsigned long)list_root, (unsigned long)cur_head,
@@ -3112,7 +3112,7 @@ void FfeGateCall (long num)
 
 	if (n_done >= 24) return;
 	n_done++;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "GATECALL@%ld arg1=%lx arg2=%lx gate_before=%ld\n",
 	         num, caller[1], caller[2], link_gate);
@@ -3185,7 +3185,7 @@ void FfeNodeList (long num)
 		extern void **cur_head  __asm__("DATA_007832");
 		extern long list_depth  __asm__("DATA_007831");
 
-		f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+		f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 		if (f == NULL) return;
 		fprintf (f, "seq=%ld NODELIST@%ld renders_since_draw=%ld head=%lx first=%lx len=%ld "
 		         "rootaddr=%lx rootval=%lx cur=%lx depth=%ld\n",
@@ -3223,7 +3223,7 @@ void FfeIdxNow (long num)
 	} else {
 		n_bad++;
 	}
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "IDX@%ld arg2=%lx bl=%d rec=%d off=%d\n", num,
 	         caller[2], (int)idx, (int)idx, (int)idx * 36);
@@ -3267,7 +3267,7 @@ void FfeAllocNow (long num)
 		return;
 	}
 	n_done++;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	/* THE LINK CONDITION (2026-08-02 evening). R35 proved the node list
 	 * FUNC_001788 walks is EMPTY (head=10242774 first=0 len=0, twelve times)
@@ -3317,7 +3317,7 @@ void FfeArenaNow (long num)
 	 * happens measures itself, not the bug. */
 	if (n_done >= 24) return;
 	n_done++;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "ARENA@%ld base=%lx arena=%lx off=%ld rec=%ld "
 	         "count=%lx val=%lx\n", num,
@@ -3733,7 +3733,7 @@ void FfeEnterLog (long num)
 		extern char map_a[] __asm__("FUNC_000286");
 		extern char map_b[] __asm__("FUNC_001682");
 		extern char map_c[] __asm__("FUNC_000938");
-		FILE *g = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+		FILE *g = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 		if (g != NULL) {
 			fprintf (g, "MAP FUNC_000286=%lx FUNC_001682=%lx "
 			         "FUNC_000938=%lx\n", (unsigned long)map_a,
@@ -3741,7 +3741,7 @@ void FfeEnterLog (long num)
 			fclose (g);
 		}
 	}
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	{
 		/* The injected MOVEM pushed d0-d7/a0-a6 (60 bytes) and then #num,
@@ -3818,6 +3818,7 @@ extern unsigned long ffe_samp_buf[20000] __asm__("_ffe_samp_buf");
 extern short ffe_samp_prof __asm__("_ffe_samp_prof");
 extern unsigned long ffe_vbl_count __asm__("_ffe_vbl_count");
 long ffe_prof_start = -1, ffe_prof_end = -1;	/* VBlanks */
+long ffe_prof_by_present, ffe_prof_p0, ffe_prof_p1;	/* "P first last" in ffe_prof */
 #define PROF_MAXP 8192
 static unsigned long prof_vbl[PROF_MAXP];
 static long prof_np;
@@ -3830,13 +3831,21 @@ void ffe_prof_present (void)
 	long i, b;
 
 	++present_no;
+	if (ffe_prof_by_present) {
+		/* window in PRESENT numbers (with ffe_fixedstep: one scene of the
+		 * intro, the same frames in every build); the end test below then
+		 * compares against the converted VBlank end */
+		if (present_no < ffe_prof_p0 || ffe_prof_end < 0) return;
+		if (present_no >= ffe_prof_p1) ffe_prof_end = 0;	/* forces the dump below */
+		else ffe_prof_end = 0x7fffffffL;
+	} else
 	if (ffe_prof_end < 0 || (long)v < ffe_prof_start) return;
 	if (prof_np == 0) { ffe_samp_n = 0; ffe_samp_armed = 1; first_present = present_no; }
 	if (prof_np < PROF_MAXP) prof_vbl[prof_np++] = v;
 	if ((long)v < ffe_prof_end) return;
 	ffe_samp_armed = 0;
 	ffe_prof_end = -1;
-	f = fopen ("PROGDIR:ffe_prof.log", "w");
+	f = fopen (ffe_pd ("ffe_prof.log"), "w");
 	if (f == NULL) return;
 	{
 		extern char map_a[] __asm__("FUNC_000286");
@@ -3870,7 +3879,7 @@ void ffe_prof_present (void)
 void FfeSampDump (void) __asm__("_FfeSampDump");
 void FfeSampDump (void)
 {
-	FILE *f = ffe_logopen ("PROGDIR:ffe_samples.log", "w");
+	FILE *f = ffe_logopen (ffe_pd ("ffe_samples.log"), "w");
 	if (f) {
 		extern char map_a[] __asm__("FUNC_000286");
 		extern char map_b[] __asm__("FUNC_001682");
@@ -3890,7 +3899,7 @@ void FfeCrashDie (void) __asm__("_FfeCrashDie");
 void FfeCrashDie (void)
 {
 	extern unsigned long ffe_crash_frame[12] __asm__("_ffe_crash_frame");
-	FILE *f = fopen ("PROGDIR:ffe_crash.log", "a");
+	FILE *f = fopen (ffe_pd ("ffe_crash.log"), "a");
 	if (f) {
 		int i;
 		/* THE CODE-HUNK ANCHOR, and it belongs HERE rather than only on the
@@ -4160,7 +4169,7 @@ static int ffe_main (void)
 			                  : "a6", "a1", "d0", "d1", "a0", "cc", "memory");
 			if (lib) *bases[i] = lib;
 			{
-				FILE *lf = ffe_logopen ("PROGDIR:ffe_game.log", "a");
+				FILE *lf = ffe_logopen (ffe_pd ("ffe_game.log"), "a");
 
 				if (lf) {
 					fprintf (lf, "MATHLIB %s -> %lx (base now %lx)\n", nm,
@@ -4170,7 +4179,17 @@ static int ffe_main (void)
 			}
 		}
 	}
-	FfeSampInstall ();	/* FIRST-LIGHT DEBUG: VBlank PC sampler */
+	/* FIRST-LIGHT DEBUG: VBlank PC sampler. It patches the level-3 autovector
+	 * and reads INTREQR, so it must stay out of a player's run: MorphOS has
+	 * neither (2026-10-29). Only when PROGDIR:ffe_sample or ffe_prof asks. */
+	{
+		FILE *sf = fopen (ffe_pd ("ffe_sample"), "r");
+		FILE *pf = sf ? NULL : fopen (ffe_pd ("ffe_prof"), "r");
+
+		if (sf != NULL) fclose (sf);
+		if (pf != NULL) fclose (pf);
+		if (sf != NULL || pf != NULL) FfeSampInstall ();
+	}
 	{
 		/* soft restart: the vector must not outlive the program */
 		extern void FfeSampRemove (void) __asm__("_FfeSampRemove");
@@ -4187,7 +4206,7 @@ static int ffe_main (void)
 	 * FfeSampDump and PROGDIR:ffe_samples.log is written. */
 	{
 		extern short ffe_samp_start_flag __asm__("_ffe_samp_armed");
-		FILE *sf = fopen ("PROGDIR:ffe_sample", "r");
+		FILE *sf = fopen (ffe_pd ("ffe_sample"), "r");
 
 		extern long ffe_samp_limit_v __asm__("_ffe_samp_limit");
 
@@ -4205,10 +4224,19 @@ static int ffe_main (void)
 	}
 	if (ffe_dev_mode ()) {
 		/* PROFILER: PROGDIR:ffe_prof = "START END" seconds (see ffe_prof_present) */
-		FILE *pf = fopen ("PROGDIR:ffe_prof", "r");
+		FILE *pf = fopen (ffe_pd ("ffe_prof"), "r");
 		long s0, s1;
 		if (pf != NULL) {
-			if (fscanf (pf, "%ld %ld", &s0, &s1) == 2 && s1 > s0) {
+			char kind[4] = "";
+			if (fscanf (pf, " %1[P]", kind) == 1 && fscanf (pf, "%ld %ld", &s0, &s1) == 2 && s1 > s0) {
+				extern long ffe_prof_start, ffe_prof_end, ffe_prof_by_present, ffe_prof_p0, ffe_prof_p1;
+				extern long ffe_samp_limit_q __asm__("_ffe_samp_limit");
+				extern short ffe_samp_prof_q __asm__("_ffe_samp_prof");
+				ffe_prof_by_present = 1; ffe_prof_p0 = s0; ffe_prof_p1 = s1;
+				ffe_prof_start = 0; ffe_prof_end = 0x7fffffffL;
+				ffe_samp_limit_q = 20000;
+				ffe_samp_prof_q = 1;
+			} else if (fscanf (pf, "%ld %ld", &s0, &s1) == 2 && s1 > s0) {
 				extern long ffe_prof_start, ffe_prof_end;
 				extern long ffe_samp_limit_q __asm__("_ffe_samp_limit");
 				extern short ffe_samp_prof_q __asm__("_ffe_samp_prof");
@@ -4240,7 +4268,7 @@ static int ffe_main (void)
 		extern void *opcode_tab[] __asm__("DATA_007816");
 		extern char quad_h __asm__("FUNC_001711");
 		extern char noop_h __asm__("FUNC_001754");
-		FILE *bf = ffe_logopen ("PROGDIR:ffe_game.log", "a");
+		FILE *bf = ffe_logopen (ffe_pd ("ffe_game.log"), "a");
 
 		if (bf) {
 			fprintf (bf, "BISECT: opcode_tab[4] %lx (FUNC_001711=%lx) -> "
@@ -4255,7 +4283,7 @@ static int ffe_main (void)
 	/* APPEND, never truncate: a Guru reboots the machine, the startup script
 	 * relaunches ffe_game, and a "w" here would destroy the crashed run's
 	 * evidence. The harness deletes the logs before each launch instead. */
-	FILE *f = ffe_logopen ("PROGDIR:ffe_game.log", "a");
+	FILE *f = ffe_logopen (ffe_pd ("ffe_game.log"), "a");
 	if (f) {
 		fprintf (f, "ffe_game: first light REC-R60 -- calling _asmmain\n");
 		fflush (f);
@@ -4768,7 +4796,7 @@ void FfeP879 (long num)
 }
 static void p879_dump (void)
 {
-	FILE *f = ffe_logopen ("PROGDIR:ffe_p879.log", "w");
+	FILE *f = ffe_logopen (ffe_pd ("ffe_p879.log"), "w");
 	long i;
 	if (f == 0) return;
 	for (i = 0; i < ffe_p9_n; i++) {
@@ -4813,7 +4841,7 @@ void FfeP581 (long num)
 }
 static void p581_dump (void)
 {
-	FILE *f = ffe_logopen ("PROGDIR:ffe_p581.log", "w");
+	FILE *f = ffe_logopen (ffe_pd ("ffe_p581.log"), "w");
 	long i;
 	int k;
 	if (f == 0) return;
@@ -4858,7 +4886,7 @@ void FfeP36 (long num)
 }
 static void p36_dump (void)
 {
-	FILE *f = ffe_logopen ("PROGDIR:ffe_p36.log", "w");
+	FILE *f = ffe_logopen (ffe_pd ("ffe_p36.log"), "w");
 	long i;
 	int k;
 	if (f == 0) return;
@@ -4880,7 +4908,7 @@ static void objts_tick (long clk)
 	if (((unsigned long)clk & 0x80000000UL) == 0 || n >= 90) return;
 	/* 6 snapshots every 128 presents (game start), then every 256 up to 40
 	 * (2026-10-09: to follow the player through launch) */
-	if (n == 0 || (n < 6 && (++cnt & 127) == 0) || (n >= 6 && (++cnt & 255) == 0)) { objtab_dump2 ("PROGDIR:ffe_objts.log", n ? "a" : "w", clk); n++; }
+	if (n == 0 || (n < 6 && (++cnt & 127) == 0) || (n >= 6 && (++cnt & 255) == 0)) { objtab_dump2 (ffe_pd ("ffe_objts.log"), n ? "a" : "w", clk); n++; }
 }
 /* RNGWIN (2026-10-16): PROGDIR:ffe_rngwin "lo hi" -> every present with the
  * unsigned clock in [lo,hi]: clock, RNG state (as the game reads it), object
@@ -4891,14 +4919,14 @@ static void rngwin_tick (long clk)
 	extern unsigned char rw_a[] __asm__("DATA_008818"); extern unsigned long rw_b __asm__("DATA_008820");
 	extern unsigned char *rw_base __asm__("DATA_009133");
 	FILE *f; int i;
-	if (!rd) { FILE *w = fopen ("PROGDIR:ffe_rngwin", "r"); rd = 1; if (w) { if (fscanf (w, "%lu %lu", &lo, &hi) != 2) lo = hi = 0; fclose (w); } }
+	if (!rd) { FILE *w = fopen (ffe_pd ("ffe_rngwin"), "r"); rd = 1; if (w) { if (fscanf (w, "%lu %lu", &lo, &hi) != 2) lo = hi = 0; fclose (w); } }
 	if (!hi || (unsigned long)clk < lo || (unsigned long)clk > hi || !rw_base) return;
-	f = ffe_logopen ("PROGDIR:ffe_rngwin.log", "a"); if (!f) return;
+	f = ffe_logopen (ffe_pd ("ffe_rngwin.log"), "a"); if (!f) return;
 	fprintf (f, "W %lu %08lx %08lx", (unsigned long)clk, (unsigned long)rw_a[0] | ((unsigned long)rw_a[1] << 8) | ((unsigned long)rw_a[2] << 16) | ((unsigned long)rw_a[3] << 24), rw_b);
 	for (i = 1; i <= 0x72; i++) if (rw_base[i]) fprintf (f, " %d:%ld", i, *(const long *)(rw_base + 0x74 + i * 0x152 + 0x82));
 	fprintf (f, "%c", 10); fclose (f);
 }
-#define DOCKTS_PATH "PROGDIR:ffe_dockts.log"
+#define DOCKTS_PATH ffe_pd ("ffe_dockts.log")
 /* DOCKTS (2026-10-16): while the PLAYER's parent object is a station (model
  * 72), every 8 presents: player position relative to the parent (+0x3e..,
  * three 64-bit), the player's and the station's 3x3 matrices. Twin on both
@@ -4941,13 +4969,13 @@ void ffe_frame1808_present (long clk)
 	 * 0x80000000, so the compare is unsigned. Default 700000 (the intro). */
 	static unsigned long arm;
 	if (arm == 0) {
-		FILE *af = fopen ("PROGDIR:ffe_f8arm", "r");
+		FILE *af = fopen (ffe_pd ("ffe_f8arm"), "r");
 		arm = 700000;
 		if (af != NULL) { if (fscanf (af, "%lu", &arm) != 1) arm = 700000; fclose (af); }
 	}
 	if (ffe_f8_state == 0 && (unsigned long)clk >= arm) ffe_f8_state = 1;
 	else if (ffe_f8_state == 1) ffe_f8_state = 2;
-	else if (ffe_f8_state == 2) { ffe_f8_state = 3; objtab_dump ("PROGDIR:ffe_objtab.log"); p879_dump (); p581_dump (); p36_dump (); }
+	else if (ffe_f8_state == 2) { ffe_f8_state = 3; objtab_dump (ffe_pd ("ffe_objtab.log")); p879_dump (); p581_dump (); p36_dump (); }
 }
 void FfeFrame1808 (const unsigned char *item)
 {
@@ -5085,7 +5113,7 @@ void FfeSysMap (long num)
 
 	if (n_done >= 3) return;
 	n_done++;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "SYSMAP n=%d m=", n_done);
 	for (i = 0; i < 9; i++)
@@ -5115,7 +5143,7 @@ void FfeOrb986 (long num)
 
 	if (n_done >= 80 || o == 0) return;
 	n_done++;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "ORB n=%d t82=%lx b87=%02x b56=%02x b14c=%02x w9e=%04x wc6=%04x dbe=%lx db0=%lx p3e=%lx,%lx,%lx,%lx,%lx,%lx a2=%lx\n",
 	         n_done, *(const unsigned long *)(o + 0x82), o[0x87], o[0x56], o[0x14c],
@@ -5140,7 +5168,7 @@ void FfeObj1680 (long num)
 
 	if (ffe_f8_state != 2 || n_done >= 120) return;
 	n_done++;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "OBJ1680 n=%d mdl=%lx s7e=%lx pos=%lx,%lx,%lx,%lx,%lx,%lx f56=%02x f57=%02x f86=%02x p56=%02x p57=%02x\n",
 	         n_done, *(const unsigned long *)(o + 0x82), *(const unsigned long *)(o + 0x7e),
@@ -5163,7 +5191,7 @@ void FfeMsb1657 (long num)
 
 	if (ffe_f8_state != 2 || n_done >= 120) return;
 	n_done++;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "MSB1657 n=%d v=%lx,%lx,%lx,%lx,%lx,%lx\n", n_done, v[0], v[1], v[2], v[3], v[4], v[5]);
 	fclose (f);
@@ -5183,7 +5211,7 @@ void FfeTxt1747 (long num)
 
 	if (ffe_f8_state != 2) return;
 	nd = DATA_009201_p + st[2] * 8;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "TXT1747 st=");
 	for (i = 0; i < 8; i++) fprintf (f, "%02x", st[i]);
@@ -5211,7 +5239,7 @@ void FfeLin1703 (long num)
 	FILE *f;
 
 	if (ffe_f8_state != 2) return;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "LIN1703 a2=%lx a3=%lx a4=%lx def=%02x%02x%02x f4=%02x%02x%02x 84=%02x%02x%02x\n",
 	         caller[2], caller[3], caller[4], DATA_007826[0], DATA_007826[1], DATA_007827[0],
@@ -5231,7 +5259,7 @@ void FfeSh1691 (long num)
 
 	if (ffe_f8_state != 2 || n >= 40) return;
 	n++;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "SH1691 rgb=%02x%02x%02x%02x idx=%ld\n", b[0], b[1], b[2], b[3], (long)caller[3]);
 	fclose (f);
@@ -5248,7 +5276,7 @@ void FfeSrf1840 (long num)
 
 	if (ffe_f8_state != 2 || n >= 60) return;
 	n++;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "SRF1840");
 	for (k = 0; k < 3; k++) {
@@ -5273,7 +5301,7 @@ void FfeCr1838 (long num)
 
 	if (ffe_f8_state != 2 || n >= 80) return;
 	n++;
-	f = ffe_logopen ("PROGDIR:ffe_enter.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_enter.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "CR1838 s=%ld light=%lx off=%ld e0=%lx\n", (long)caller[2], caller[3],
 	         (long)((const unsigned char *)caller[4] - DATA_007849), *(const unsigned long *)caller[4]);

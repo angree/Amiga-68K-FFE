@@ -42,7 +42,7 @@ static void dbg_key (int code)
 	FILE *f;
 
 	if (g_dbg_keys >= 40) return;
-	f = ffe_logopen ("PROGDIR:ffe_input.log", "a");
+	f = ffe_logopen (ffe_pd ("ffe_input.log"), "a");
 	if (f == NULL) return;
 	fprintf (f, "EV_KEY raw=0x%02x %s\n", code & 0x7f,
 	         (code & 0x80) ? "up" : "down");
@@ -140,7 +140,7 @@ static void autokey_poll (void)
 	}
 	if (++poll_n < 32) return;
 	poll_n = 0;
-	f = fopen ("PROGDIR:ffe_autokey", "r");
+	f = fopen (ffe_pd ("ffe_autokey"), "r");
 	if (f == NULL) return;
 	raw = -1;
 	hold = 12;
@@ -150,7 +150,7 @@ static void autokey_poll (void)
 	 * time-acceleration icons, 2026-10-16) */
 	fscanf (f, "%d %d %d", &raw, &hold, &mod);
 	fclose (f);
-	remove ("PROGDIR:ffe_autokey");
+	remove (ffe_pd ("ffe_autokey"));
 	if (raw < 0 || raw > 0x7f) return;
 	dbg_key (raw);
 	if (mod >= 0 && mod <= 0x7f) { g_held[mod] = 1; down_mod = mod; }
@@ -212,7 +212,7 @@ static void automouse_poll (void)
 					 * dwords (x1,y1,x2,y2,action) up to the -1 terminator
 					 * (FUNC_001432's walker, ffe.asm:86069-86086). */
 					extern long ffe_hot_list[] __asm__("DATA_007683");
-					FILE *hf = ffe_logopen ("PROGDIR:ffe_hotrects.log", "w");
+					FILE *hf = ffe_logopen (ffe_pd ("ffe_hotrects.log"), "w");
 					int r;
 					if (hf != NULL) {
 						fprintf (hf, "CLICK at gui=%ld,%ld%c", cx, cy, 10);
@@ -229,7 +229,7 @@ static void automouse_poll (void)
 		if (chase_left == 0) {
 			/* expired without converging: say where the game's pointer
 			 * actually was -- ground truth for the storage plumbing */
-			FILE *d = ffe_logopen ("PROGDIR:ffe_game.log", "a");
+			FILE *d = ffe_logopen (ffe_pd ("ffe_game.log"), "a");
 			if (d) {
 				fprintf (d, "CHASE expired at %ld,%ld tgt %ld,%ld\n",
 				         cx, cy, tgt_x, tgt_y);
@@ -259,19 +259,19 @@ static void automouse_poll (void)
 	}
 	if (++poll_n < 32) return;
 	poll_n = 0;
-	f = fopen ("PROGDIR:ffe_automouse", "r");
+	f = fopen (ffe_pd ("ffe_automouse"), "r");
 	if (f == NULL) return;
 	tgt_x = tgt_y = -1;
 	want_click = 1;
 	fscanf (f, "%ld %ld %ld", &tgt_x, &tgt_y, &want_click);
 	fclose (f);
-	remove ("PROGDIR:ffe_automouse");
+	remove (ffe_pd ("ffe_automouse"));
 	if (tgt_x == 999) {
 		/* magic: dump the LIVE hot-rect table (DATA_007683, 129 entries
 		 * of 5 longs x,y,w,h,action; first x == -1 is the sentinel) so
 		 * the harness can aim at REAL click targets instead of guessing */
 		extern long ffe_hotrects[] __asm__("DATA_007683");
-		FILE *d = ffe_logopen ("PROGDIR:ffe_hotareas.log", "w");
+		FILE *d = ffe_logopen (ffe_pd ("ffe_hotareas.log"), "w");
 		if (d) {
 			int i;
 			for (i = 0; i < 129; i++) {
@@ -318,7 +318,7 @@ static void clockkeys_poll (void)
 	unsigned long now = ck_clock[0];
 
 	if (ck_n < 0) {
-		FILE *f = fopen ("PROGDIR:ffe_clockkeys", "r");
+		FILE *f = fopen (ffe_pd ("ffe_clockkeys"), "r");
 		char line[96];
 		ck_n = 0;
 		if (f == NULL) return;
@@ -399,7 +399,7 @@ void ffe_pump_input (void)
 			 * played the developer's typing from another window (2026-10-16). */
 			static int nokeys = -1;
 			if (nokeys < 0) {
-				FILE *nk = ffe_dev_mode () ? fopen ("PROGDIR:ffe_nokeys", "r") : NULL;
+				FILE *nk = ffe_dev_mode () ? fopen (ffe_pd ("ffe_nokeys"), "r") : NULL;
 				nokeys = nk != NULL;
 				if (nk != NULL) fclose (nk);
 			}

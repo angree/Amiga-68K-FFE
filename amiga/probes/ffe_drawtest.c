@@ -340,11 +340,11 @@ static void check_scene (const UCHAR *buf)
  * 320*200 colour indices. */
 static void dump_frame (const UCHAR *buf)
 {
-	FILE *f = fopen ("PROGDIR:ffe_frame.raw", "wb");
+	FILE *f = fopen (ffe_pd ("ffe_frame.raw"), "wb");
 	UCHAR pal[3];
 	int i;
 
-	if (f == NULL) { logf_ ("could not open PROGDIR:ffe_frame.raw"); return; }
+	if (f == NULL) { logf_ ("could not open ffe_frame.raw"); return; }
 	fwrite ("FFEFRM01", 1, 8, f);
 	for (i = 0; i < 256; i++) {
 		VideoGetPalValue (i, pal);
@@ -352,7 +352,7 @@ static void dump_frame (const UCHAR *buf)
 	}
 	fwrite (buf, 1, (size_t)FFE_SCREEN_W * FFE_SCREEN_H, f);
 	fclose (f);
-	logf_ ("framebuffer dumped to PROGDIR:ffe_frame.raw");
+	logf_ ("framebuffer dumped to ffe_frame.raw");
 }
 
 /* ---- main --------------------------------------------------------------- */
@@ -367,7 +367,7 @@ int main (void)
 	unsigned long t0, t, last = 0;
 	const char *why = "held the full time";
 
-	g_log = fopen ("PROGDIR:ffe_drawtest.log", "w");
+	g_log = fopen (ffe_pd ("ffe_drawtest.log"), "w");
 	logf_ ("FFE span renderer probe -- every pixel drawn by the TRANSLATED "
 	       "FUNC_001601_DrawHLine");
 
